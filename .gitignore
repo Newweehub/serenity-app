@@ -1,0 +1,38 @@
+# Node.js
+node_modules/
+backend/node_modules/
+frontend/node_modules/
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# Build outputs
+dist/
+build/
+frontend/.next/
+frontend/out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE / Editor
+.vscode/
+.idea/
+
+# Temporary files
+tmp/
+temp/
+
+# Azure / Deployment
+.azure/
+*.publishsettings
+
+# Testing / coverage
+coverage/
