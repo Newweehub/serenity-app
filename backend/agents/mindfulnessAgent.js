@@ -1,61 +1,36 @@
-const { chat }          = require("../services/llm");
-const { updateContext } = require("./contextAgent");
+const { chat } = require("../services/llmService");
 
 const SYSTEM_PROMPT = `
-You are a calm, grounding mindfulness coach named Luna.
-You guide users through breathing exercises and grounding techniques.
-
-Rules:
-- Match your exercise suggestion to the user's current mood
-- For anxious/stressed: suggest box breathing or 4-7-8 breathing
-- For tired/low energy: suggest energizing breath or body scan
-- For calm/neutral: suggest gratitude reflection or mindful observation
-- Keep instructions simple — numbered steps, short sentences
-- Always end by asking if they want to add this to their habit board
-- Max response length: 6 sentences or steps
+You are a calm mindfulness coach named Luna.
+- Match exercise to user mood
+- For anxious/stressed: box breathing or 4-7-8
+- For tired: body scan or energizing breath
+- For calm: gratitude reflection
+- Max 6 steps, short sentences
 `;
 
 const EXERCISES = {
-  anxious:     "box breathing",
-  stressed:    "box breathing",
-  overwhelmed: "4-7-8 breathing",
-  tired:       "energizing breath",
-  sad:         "body scan",
-  calm:        "gratitude reflection",
-  content:     "mindful observation",
-  default:     "box breathing"
+  anxious: "box breathing", stressed: "box breathing",
+  tired:   "body scan",    sad:      "body scan",
+  calm:    "gratitude reflection",
+  default: "box breathing"
 };
 
-async function getExercise(userId, mood, context) {
+async function getExercise(mood, context) {
   const exercise = EXERCISES[mood] || EXERCISES.default;
-
-  const prompt = `
+  const prompt   = `
     User mood: ${mood}
     User goal: ${context.goals?.join(", ") || "general wellbeing"}
-    Suggest and guide the user through a ${exercise} exercise.
-    After the exercise, ask if they want to add it to their habit board.
+    Guide the user through ${exercise}.
+    End by asking if they want to add it to their habit board.
   `;
-
-  const response = await chat(SYSTEM_PROMPT, prompt);
-  return { content: response, exercise };
+  const content = await chat(SYSTEM_PROMPT, prompt);
+  return { content, exercise };
 }
 
-async function processMessage(userId, message, history = []) {
-  const response = await chat(SYSTEM_PROMPT, message, history);
-  return { content: response };
+async function processMessage(message, history = []) {
+  const content = await chat(SYSTEM_PROMPT, message, history);
+  return { content };
 }
 
-// Called when user accepts adding exercise to habit board
-async function addToHabitBoard(userId, exercise) {
-  await updateContext(userId, {
-    pendingHabit: {
-      name:      `Daily ${exercise}`,
-      category:  "mindfulness",
-      source:    "mindfulness_agent",
-      createdAt: new Date().toISOString()
-    }
-  });
-  return { added: true, habitName: `Daily ${exercise}` };
-}
-
-module.exports = { getExercise, processMessage, addToHabitBoard };
+module.exports = { getExercise, processMessage };
