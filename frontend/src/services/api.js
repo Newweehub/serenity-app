@@ -11,7 +11,10 @@ export const login = (name) =>
 
 // Chat
 export const sendMessage = (userId, message, mood = null, history = []) =>
-  api.post("/chat", { userId, message, mood, history }).then(r => r.data);
+  api.post("/chat", {
+    userId, message, mood, history,
+    tzOffset: new Date().getTimezoneOffset()  // ← add this
+  }).then(r => r.data);
 
 export const checkInMood = (userId, mood) =>
   api.post("/chat/mood", { userId, mood }).then(r => r.data);
@@ -22,6 +25,12 @@ export const getJournalEntries = (userId) =>
 
 export const createJournalEntry = (userId, text, emotion, themes) =>
   api.post("/journal", { userId, text, emotion, themes }).then(r => r.data);
+
+export const getMindfulnessHabits = (userId) =>
+  api.get(`/habits/${userId}`)
+    .then(r => r.data.filter(h =>
+      h.category === "mindfulness" && h.active
+    ));
 
 // Habits
 export const getHabits = (userId) =>
@@ -39,6 +48,9 @@ export const getHabitSuggestion = (userId) =>
 // Insights
 export const getInsights = (userId) =>
   api.get(`/insights/${userId}`).then(r => r.data);
+
+export const getAllTimeInsights = (userId) =>
+  api.get(`/insights/${userId}/alltime`).then(r => r.data);
 
 export const getStats = (userId) =>
   api.get(`/insights/${userId}/stats`).then(r => r.data);

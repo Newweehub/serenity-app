@@ -65,10 +65,35 @@ async function searchByMeaning(userId, query, top = 3) {
   return entries;
 }
 
+async function findById(userId, id) {
+  try {
+    const { resource } = await db
+      .container(CONTAINER)
+      .item(id, userId)
+      .read();
+    return resource || null;
+  } catch {
+    return null;
+  }
+}
+
+async function getEntriesSince(userId, since) {
+  const { resources } = await db
+    .container(CONTAINER)
+    .items.query({
+      query: `SELECT * FROM c WHERE c.userId = @userId
+              AND c.date >= @since ORDER BY c.date DESC`,
+      parameters: [
+        { name: "@userId", value: userId },
+        { name: "@since",  value: since  }
+      ]
+    }).fetchAll();
+  return resources;
+}
+
+// add to exports
 module.exports = {
-  findByUser,
-  findByUserSince,
-  create,
-  indexEntry,
-  searchByMeaning
+  findByUser, findByUserSince, findById,
+  getEntriesSince,   // ← add
+  create, indexEntry, searchByMeaning
 };

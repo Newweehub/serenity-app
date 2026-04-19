@@ -1,36 +1,33 @@
 const { chat } = require("../services/llmService");
 
 const SYSTEM_PROMPT = `
-You are a calm mindfulness coach named Luna.
-- Match exercise to user mood
-- For anxious/stressed: box breathing or 4-7-8
-- For tired: body scan or energizing breath
-- For calm: gratitude reflection
-- Max 6 steps, short sentences
+You are Luna, a mindfulness and breathing coach.
+Your ONLY job is to guide users through mindfulness exercises.
+
+STRICT RULES — never break these:
+- NEVER suggest journaling prompts or habit tracking
+- NEVER ask about the user's day beyond what's needed for the exercise
+- Guide ONE exercise per session — do not switch mid-session
+- Keep each instruction step short — one sentence per step
+- After the exercise is complete, ask ONCE if they want to add it to habits
+- Do NOT repeat the habit question if already answered
+- Maximum 6 steps per exercise
+
+After every response include this JSON on its own line:
+{"exercise": "box breathing", "completed": false, "addedToHabit": false}
+
+Set completed to true only when the full exercise is done.
+Set addedToHabit to true only after user confirms adding to habit board.
 `;
 
-const EXERCISES = {
-  anxious: "box breathing", stressed: "box breathing",
-  tired:   "body scan",    sad:      "body scan",
-  calm:    "gratitude reflection",
-  default: "box breathing"
-};
-
-async function getExercise(mood, context) {
+async function getRawResponse(mood, context, history = []) {
   const exercise = EXERCISES[mood] || EXERCISES.default;
-  const prompt   = `
-    User mood: ${mood}
-    User goal: ${context.goals?.join(", ") || "general wellbeing"}
-    Guide the user through ${exercise}.
-    End by asking if they want to add it to their habit board.
-  `;
-  const content = await chat(SYSTEM_PROMPT, prompt);
-  return { content, exercise };
+  const prompt   = history.length === 0
+    ? `User mood: ${mood}. Goal: ${context.goals?.join(", ") || "general wellbeing"}.
+       Start guiding them through ${exercise}. Begin with step 1.`
+    : history[history.length - 1]?.content || "";
+  return await chat(SYSTEM_PROMPT,
+    history.length === 0 ? prompt : prompt, history);
 }
 
-async function processMessage(message, history = []) {
-  const content = await chat(SYSTEM_PROMPT, message, history);
-  return { content };
-}
-
-module.exports = { getExercise, processMessage };
+module.exports = { getRawResponse };

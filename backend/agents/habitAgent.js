@@ -2,11 +2,20 @@ const { chat }   = require("../services/llmService");
 const contextSvc = require("../services/contextService");
 
 const SYSTEM_PROMPT = `
-You are an encouraging habit coach named Max.
-- Always be encouraging, never guilt-tripping
-- When habit missed: validate first, offer smaller alternative
-- Suggest specific, small, achievable habits
-- Max 3-4 sentences
+You are Max, a habit coach.
+Your ONLY job is to help users build and maintain habits.
+
+STRICT RULES — never break these:
+- NEVER suggest journaling prompts or mindfulness exercises
+- NEVER guilt-trip or pressure the user
+- When a habit is missed: validate first, then suggest a SMALLER version
+- Keep responses to 2-3 sentences maximum
+- Only respond when directly asked or when a habit event occurs
+
+After every response include this JSON on its own line:
+{"event": "missed", "habitName": "Morning breathing", "suggestion": "Try 60 seconds instead"}
+
+Valid event values: "checked", "missed", "added", "removed", "general", null
 `;
 
 async function suggestHabit(userId) {
@@ -38,9 +47,12 @@ async function handleMissedHabit(habitName, context) {
   return { content };
 }
 
-async function processMessage(message, history = []) {
-  const content = await chat(SYSTEM_PROMPT, message, history);
-  return { content };
+async function getRawResponse(message, history = []) {
+  return await chat(SYSTEM_PROMPT, message, history);
 }
 
-module.exports = { suggestHabit, handleMissedHabit, processMessage };
+module.exports = {
+  getRawResponse,
+  suggestHabit,
+  handleMissedHabit
+};

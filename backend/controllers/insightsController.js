@@ -15,4 +15,31 @@ async function getStats(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { getWeeklyInsight, getStats };
+async function getMonthlyInsight(req, res, next) {
+  try {
+    const { getMonthlyData } = require("../services/insightsService");
+    const insightsAgent      = require("../agents/insightsAgent");
+    const data               = await getMonthlyData(req.params.userId);
+    const insight            = await insightsAgent
+      .getInsightFromData(req.params.userId, data);
+    res.json(insight);
+  } catch (err) { next(err); }
+}
+
+async function getAllTimeInsight(req, res, next) {
+  try {
+    const insightsSvc   = require("../services/insightsService");
+    const insightsAgent = require("../agents/insightsAgent");
+    const data          = await insightsSvc.getAllTimeData(req.params.userId);
+    const insight       = await insightsAgent
+      .getInsightFromData(req.params.userId, data);
+    res.json(insight);
+  } catch (err) { next(err); }
+}
+
+module.exports = {
+  getWeeklyInsight,
+  getStats,
+  getMonthlyInsight,
+  getAllTimeInsight 
+};
