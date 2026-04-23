@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { getReport } from '../controllers/insightController.js';
+import { search } from '../controllers/searchController.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 
 const router = Router();
-router.get('/', asyncHandler(getReport));
+router.get('/', asyncHandler(search));
 export default router;

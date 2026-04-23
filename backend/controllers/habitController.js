@@ -1,35 +1,49 @@
-const habitSvc   = require("../services/habitService");
-const habitAgent = require("../agents/habitAgent");
+import * as habitService from '../services/habitService.js';
 
-async function getHabits(req, res, next) {
-  try {
-    const habits = await habitSvc.getHabits(req.params.userId);
-    res.json(habits);
-  } catch (err) { next(err); }
+/**
+ * GET /api/habits
+ */
+export async function list(req, res) {
+  const habits = await habitService.getActiveHabits(req.userId);
+  res.json({ habits });
 }
 
-async function createHabit(req, res, next) {
-  try {
-    const { userId, name, category } = req.body;
-    const habit = await habitSvc.addHabit(userId, name, category);
-    res.status(201).json(habit);
-  } catch (err) { next(err); }
+/**
+ * POST /api/habits
+ * Body: { name, category, goal?, schedule?, addedVia?, originalUserMessage? }
+ */
+export async function create(req, res) {
+  const habit = await habitService.createHabit(req.userId, req.body);
+  res.status(201).json({ habit });
 }
 
-async function checkOff(req, res, next) {
-  try {
-    const { userId } = req.body;
-    const habit = await habitSvc.checkOffHabit(userId, req.params.habitId);
-    if (!habit) return res.status(404).json({ error: "Habit not found" });
-    res.json(habit);
-  } catch (err) { next(err); }
+/**
+ * POST /api/habits/:id/checkin
+ * Body: { completed, note? }
+ */
+export async function checkIn(req, res) {
+  const { completed, note } = req.body;
+  const result = await habitService.checkIn(req.params.id, req.userId, { completed, note });
+  res.json(result);
 }
 
-async function getSuggestion(req, res, next) {
-  try {
-    const suggestion = await habitAgent.suggestHabit(req.params.userId);
-    res.json(suggestion);
-  } catch (err) { next(err); }
+/**
+ * PATCH /api/habits/:id/status
+ * Body: { status }  — 'active' | 'paused' | 'archived'
+ */
+export async function updateStatus(req, res) {
+  const habit = await habitService.updateStatus(req.params.id, req.userId, req.body.status);
+  res.json({ habit });
 }
 
-module.exports = { getHabits, createHabit, checkOff, getSuggestion };
+/**
+ * POST /api/habits/suggest
+ * Body: { message }  — user's natural language goal/request
+ */
+export async function suggest(req, res) {
+  const suggestion = await habitService.getSuggestion(req.userId, req.body.message);
+  if (!suggestion) {
+    return res.status(422).json({ error: 'Could not generate a suggestion. Please try again.' });
+  }
+  res.json({ suggestion });
+}

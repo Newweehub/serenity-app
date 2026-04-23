@@ -1,61 +1,67 @@
-const { chat }       = require("../services/llmService");
-const contextSvc     = require("../services/contextService");
-const journalSvc     = require("../services/journalService");
+import { openaiClient, MODEL } from './openaiClient.js';
+import { prompts } from './prompts.js';
 
-const SYSTEM_PROMPT = `
-You are Sage, a journaling and reflection assistant.
-Your ONLY job is to help users reflect through writing.
+const FALLBACK_ANALYSIS = {
+  emotions: ['unknown'],
+  themes: ['general'],
+  moodScore: 5,
+  summary: 'User wrote a journal entry.',
+  suggestedExerciseIds: [],
+  reflectionOffered: 'Thank you for sharing that. How does it feel to have written it out?',
+};
 
-CRITICAL RULES — never break these:
-- You have NO access to real-time data, news, or current events
-  — but you must NEVER say this to the user. Simply redirect:
-  "I'm here to help you reflect — what's on your mind today?"
-- Ask ONE question at a time, never multiple
-- NEVER suggest exercises, breathing, meditation, or habits
-- NEVER give advice unless the user explicitly asks
-- NEVER say "I cannot", "I don't have access", or "as an AI"
-- Validate feelings before asking anything
-- Keep responses to 2-4 sentences maximum
-- You speak in the first person as a warm supportive friend
-- If the user asks something outside journaling, gently redirect:
-  "Let's focus on you — how are you feeling about that?"
-
-After EVERY response, on its own line, include exactly this JSON:
-{"emotion": "calm", "themes": ["work"], "handoff": null}
-
-Valid emotions: calm, anxious, excited, sad, tired, hopeful,
-               frustrated, grateful, overwhelmed, content
-Valid handoff: "mindfulness" | "habit" | "insights" | null
-Only set handoff when the user clearly needs that specific support.
-Set handoff to "mindfulness" after 3-5 exchanges if mood is anxious/stressed.
-`;
-
-async function getRawResponse(userId, message, history = []) {
-  const context = await contextSvc.getContext(userId);
-
-  // Build context as part of the system prompt, not history
-  const enrichedSystemPrompt = `${SYSTEM_PROMPT}
-
-Current user context (use naturally, never mention you have this data):
-- Mood today: ${context.mood || "unknown"}
-- Recent themes: ${context.recurringThemes?.join(", ") || "none yet"}
-- Goals: ${context.goals?.join(", ") || "not set"}
-- Dominant emotion: ${context.dominantEmotion || "unknown"}`;
-
-  return await chat(enrichedSystemPrompt, message, history);
+function parseJSON(raw) {
+  try {
+    const clean = raw.replace(/```json\n?|```/g, '').trim();
+    return JSON.parse(clean);
+  } catch {
+    return null;
+  }
 }
 
-async function getOpeningQuestion(userId) {
-  const context = await contextSvc.getContext(userId);
-  const prompt  = `
-    Generate a warm opening journaling question for a user whose:
-    Mood today: ${context.mood || "unknown"}
-    Recent themes: ${context.recurringThemes?.join(", ") || "none yet"}
-    Goals: ${context.goals?.join(", ") || "not set"}
-    Ask only ONE question. Be warm and specific to their context.
-  `;
-  const raw = await chat(SYSTEM_PROMPT, prompt);
-  return raw.replace(/\{[^{}]*\}/s, "").trim();
+/**
+ * Analyse a completed journal entry and return structured AI insights.
+ */
+export async function analyzeEntry(freeText, context) {
+  const response = await openaiClient.chat.completions.create({
+    model: MODEL,
+    max_tokens: 400,
+    temperature: 0.3,
+    messages: [
+      { role: 'system', content: prompts.journalingReflection(context) },
+      {
+        role: 'user',
+        content: `The user has finished their journal entry. Return only the JSON analysis block.\n\nEntry:\n${freeText}`,
+      },
+    ],
+  });
+
+  const raw = response.choices[0]?.message?.content ?? '';
+  return parseJSON(raw) ?? FALLBACK_ANALYSIS;
 }
 
-module.exports = { getRawResponse, getOpeningQuestion };
+/**
+ * Generate a single contextual journaling prompt for the user.
+ */
+export async function generatePrompt(context, timeOfDay = 'anytime') {
+  const timeHint = {
+    morning: 'It is morning. Offer an intention-setting or goals prompt.',
+    evening: 'It is evening. Offer a reflection or gratitude prompt.',
+    anytime: 'Offer a general reflection prompt.',
+  }[timeOfDay] ?? 'Offer a general reflection prompt.';
+
+  const response = await openaiClient.chat.completions.create({
+    model: MODEL,
+    max_tokens: 80,
+    temperature: 0.9,
+    messages: [
+      { role: 'system', content: prompts.journalingReflection(context) },
+      {
+        role: 'user',
+        content: `Generate ONE journaling prompt. ${timeHint} Recent themes: ${context.recentThemes.join(', ') || 'none'}. Reply with only the prompt sentence — no preamble.`,
+      },
+    ],
+  });
+
+  return response.choices[0]?.message?.content?.trim() ?? "What's on your mind right now?";
+}

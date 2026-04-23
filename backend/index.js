@@ -1,28 +1,42 @@
-const express      = require("express");
-const cors         = require("cors");
-const errorHandler = require("./middleware/errorHandler");
-require("dotenv").config();
+import 'dotenv/config';
+import express from 'express';
+import { errorHandler } from './middleware/errorHandler.js';
+import { requestLogger } from './middleware/requestLogger.js';
+import { authMiddleware } from './middleware/auth.js';
+import chatRoutes from './routes/chat.js';
+import journalRoutes from './routes/journal.js';
+import habitRoutes from './routes/habits.js';
+import insightRoutes from './routes/insights.js';
+import searchRoutes from './routes/search.js';
+import userRoutes from './routes/users.js';
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+const PORT = process.env.PORT || 3001;
 
-// Routes
-app.use("/api/auth",     require("./routes/auth"));
-app.use("/api/chat",     require("./routes/chat"));
-app.use("/api/journal",  require("./routes/journal"));
-app.use("/api/habits",   require("./routes/habits"));
-app.use("/api/insights", require("./routes/insights"));
+// ── Global middleware ──────────────────────────────────────────────────────
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true }));
+app.use(requestLogger);
 
-// Health check
-app.get("/api/health", (_, res) =>
-  res.json({ status: "ok", timestamp: new Date().toISOString() })
-);
+// ── Health check (no auth) ─────────────────────────────────────────────────
+app.get('/health', (_req, res) => res.json({ status: 'ok', app: 'serenity' }));
 
-// Global error handler — must be last
+// ── Protected routes ───────────────────────────────────────────────────────
+// authMiddleware validates the userId header / token on every route below
+app.use('/api', authMiddleware);
+
+app.use('/api/chat',     chatRoutes);
+app.use('/api/journal',  journalRoutes);
+app.use('/api/habits',   habitRoutes);
+app.use('/api/insights', insightRoutes);
+app.use('/api/search',   searchRoutes);
+app.use('/api/users',    userRoutes);
+
+// ── Global error handler (must be last) ───────────────────────────────────
 app.use(errorHandler);
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () =>
-  console.log(`Server running on http://localhost:${PORT}`)
-);
+app.listen(PORT, () => {
+  console.log(`🌿 Serenity backend running on port ${PORT}`);
+});
+
+export default app;

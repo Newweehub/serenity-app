@@ -1,107 +1,92 @@
-const journalRepo    = require("../repositories/journalRepository");
-const contextSvc     = require("./contextService");
+import { journalRepository } from '../repositories/journalRepository.js';
+import { userRepository } from '../repositories/userRepository.js';
+import { searchRepository } from '../repositories/searchRepository.js';
+import { analyzeEntry, generatePrompt } from '../agents/journalAgent.js';
+import { buildContext } from './userService.js';
 
-function getLocalDateStringFromOffset(tzOffset = 0) {
-  // tzOffset is in minutes (getTimezoneOffset returns positive for west of UTC)
-  const now      = new Date();
-  const localMs  = now.getTime() - (tzOffset * 60 * 1000);
-  const localDate = new Date(localMs);
-  const year  = localDate.getUTCFullYear();
-  const month = String(localDate.getUTCMonth() + 1).padStart(2, "0");
-  const day   = String(localDate.getUTCDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+function generateId() {
+  return `journal_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function getTodayId(userId, tzOffset = 0) {
-  return `${userId}-${getLocalDateStringFromOffset(tzOffset)}`;
+/**
+ * Save a new journal entry, run AI analysis, index for search, update streak.
+ */
+export async function createEntry(userId, { freeText, promptUsed, moodEmoji, moodScore }) {
+  const context = await buildContext(userId);
+  const aiAnalysis = await analyzeEntry(freeText, context);
+
+  const entry = {
+    id: generateId(),
+    userId,
+    type: 'entry',
+    createdAt: new Date().toISOString(),
+    content: { freeText, promptUsed, moodEmoji, moodScore },
+    aiAnalysis: { ...aiAnalysis, analyzedAt: new Date().toISOString() },
+    linkedHabits: [],
+    searchIndexed: false,
+  };
+
+  await journalRepository.save(entry);
+
+  // Index for search and update journal streak in parallel (non-blocking)
+  Promise.all([
+    searchRepository.indexEntry(entry).then(() => {
+      entry.searchIndexed = true;
+      return journalRepository.save(entry);
+    }),
+    updateJournalStreak(userId),
+  ]).catch(err => console.error('[journalService] Background tasks failed:', err));
+
+  return entry;
 }
 
-async function getTodayEntry(userId) {
-  const id = getTodayId(userId);
-  return await journalRepo.findById(userId, id);
+/**
+ * Fetch a single entry (validates ownership).
+ */
+export async function getEntry(entryId, userId) {
+  const entry = await journalRepository.findById(entryId, userId);
+  if (!entry) throw Object.assign(new Error('Journal entry not found'), { status: 404 });
+  return entry;
 }
 
-async function appendMessage(userId, role, content, tzOffset = 0) {
-  if (!userId || !content) return null;
-
-  const id    = getTodayId(userId, tzOffset);
-  const today = getLocalDateStringFromOffset(tzOffset);
-  const time  = new Date().toLocaleTimeString("en-US", {
-    hour: "2-digit", minute: "2-digit",
-    timeZone: tzOffset === 0 ? "UTC"
-      : `Etc/GMT${tzOffset > 0 ? "+" : ""}${tzOffset / 60}`
-  });
-
-  let entry;
-  try {
-    entry = await journalRepo.findById(userId, id);
-  } catch {
-    entry = null;
-  }
-
-  if (!entry) {
-    entry = {
-      id, userId,
-      date:      today,
-      firstTime: time,
-      messages:  [],
-      emotions:  [],
-      themes:    [],
-      summary:   ""
-    };
-  }
-
-  entry.messages = entry.messages || [];
-  entry.messages.push({ role, content, time });
-  entry.lastTime = time;
-
-  return await journalRepo.create(entry);
+/**
+ * List entries for a user with pagination.
+ */
+export async function listEntries(userId, { limit = 20, offset = 0 } = {}) {
+  return journalRepository.findByUser(userId, { limit, offset });
 }
 
-async function updateTodayMeta(userId, emotion, themes) {
-  const id    = getTodayId(userId);
-  let entry   = await journalRepo.findById(userId, id);
-  if (!entry) return;
-
-  // Add emotion if not already in list
-  if (emotion && !entry.emotions.includes(emotion)) {
-    entry.emotions.push(emotion);
-  }
-  // Merge themes
-  if (themes?.length) {
-    entry.themes = [...new Set([...entry.themes, ...themes])];
-  }
-
-  await journalRepo.create(entry);
-  await journalRepo.indexEntry(entry);
-
-  // Update user context
-  await contextSvc.updateContext(userId, {
-    lastJournal:     entry.messages
-      .filter(m => m.role === "user")
-      .map(m => m.content).join(" ").substring(0, 200),
-    lastJournalDate: new Date().toISOString(),
-    dominantEmotion: entry.emotions[0] || null,
-    recurringThemes: entry.themes
-  });
+/**
+ * Generate a contextual journaling prompt for the user.
+ */
+export async function getJournalPrompt(userId, timeOfDay = 'anytime') {
+  const context = await buildContext(userId);
+  return generatePrompt(context, timeOfDay);
 }
 
-async function getPastEntries(userId, limit = 14) {
-  return await journalRepo.findByUser(userId, limit);
-}
+/**
+ * Update the user's journal streak after a new entry.
+ */
+async function updateJournalStreak(userId) {
+  const user = await userRepository.findById(userId);
+  if (!user) return;
 
-async function getWeeklyEntries(userId) {
-  const weekAgo = new Date();
-  weekAgo.setDate(weekAgo.getDate() - 7);
-  return await journalRepo.findByUserSince(userId, weekAgo.toISOString());
-}
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const lastStreakDate = user.streaks?.lastJournalDate;
 
-async function getEntriesSince(userId, since) {
-  return await journalRepo.getEntriesSince(userId, since);
-}
+  if (lastStreakDate === today) return; // already updated today
 
-module.exports = {
-  getTodayEntry, appendMessage, updateTodayMeta,
-  getPastEntries, getWeeklyEntries,
-  getEntriesSince   // ← add
-};
+  const current = lastStreakDate === yesterday
+    ? (user.streaks.journalStreak || 0) + 1
+    : 1;
+
+  user.streaks = {
+    ...user.streaks,
+    journalStreak: current,
+    longestJournalStreak: Math.max(current, user.streaks.longestJournalStreak || 0),
+    lastJournalDate: today,
+  };
+
+  await userRepository.upsert(user);
+}

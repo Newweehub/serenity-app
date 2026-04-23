@@ -1,102 +1,46 @@
-const { chat }      = require("../services/llmService");
-const insightsSvc   = require("../services/insightsService");
+import { openaiClient, MODEL } from './openaiClient.js';
+import { prompts } from './prompts.js';
 
-const SYSTEM_PROMPT = `
-You are Iris, a weekly insights coach.
-Your ONLY job is to analyze a user's data and give warm, meaningful insights.
+const FALLBACK_INSIGHT = {
+  period: 'week',
+  headline: "You showed up this week — that matters.",
+  patterns: ["Not enough data yet to surface patterns."],
+  moodTrend: 'stable',
+  topEmotions: [],
+  habitHighlight: "Keep building your streak.",
+  suggestion: "Try journaling once more this week to unlock deeper insights.",
+};
 
-STRICT RULES:
-- NEVER guide exercises or journaling prompts directly
-- Always reference specific numbers from the data
-- Start with something genuinely positive
-- Surface ONE pattern the user may not have noticed
-- End with ONE gentle suggestion
-- Maximum 5 sentences
-- NEVER say "as an AI" or mention data limitations
+/**
+ * Generate a structured insight report for a given time period.
+ * @param {object} context - Runtime context with mood trend, habits, emotions
+ * @param {string} period - 'week' | 'month' | 'year'
+ * @param {Array}  recentJournalSummaries - Array of summary strings from recent entries
+ */
+export async function generateInsightReport(context, period, recentJournalSummaries = []) {
+  const journalContext = recentJournalSummaries.length > 0
+    ? `Recent journal summaries:\n${recentJournalSummaries.map((s, i) => `${i + 1}. ${s}`).join('\n')}`
+    : 'No journal entries yet for this period.';
 
-CRITICAL — you MUST end your response with this exact JSON format
-on its own line. Fill in ALL fields — never leave values empty:
+  const response = await openaiClient.chat.completions.create({
+    model: MODEL,
+    max_tokens: 400,
+    temperature: 0.5,
+    messages: [
+      { role: 'system', content: prompts.insightsAnalytics(context) },
+      {
+        role: 'user',
+        content: `Generate a ${period}ly insight report. Return JSON only.\n\n${journalContext}`,
+      },
+    ],
+  });
 
-{"suggestedHabit": {"name": "Evening walk", "reason": "You felt calmer on active days"}}
-
-If you cannot think of a habit, use:
-{"suggestedHabit": {"name": "5-minute breathing", "reason": "A short daily practice builds consistency"}}
-
-NEVER output {"suggestedHabit": } — always include name and reason.
-`;
-
-function extractMeta(raw) {
+  const raw = response.choices[0]?.message?.content ?? '';
   try {
-    // Find JSON block
-    const match = raw.match(/\{[\s\S]*"suggestedHabit"[\s\S]*\}/);
-    if (!match) return {};
-    let jsonStr = match[0];
-
-    // Repair common malformed patterns
-    // Fix: {"suggestedHabit": } → remove empty value
-    jsonStr = jsonStr.replace(
-      /"suggestedHabit"\s*:\s*\}/,
-      '"suggestedHabit": null}'
-    );
-    // Fix: trailing commas
-    jsonStr = jsonStr.replace(/,\s*([}\]])/g, "$1");
-
-    const parsed = JSON.parse(jsonStr);
-
-    // Validate suggestedHabit has required fields
-    if (parsed.suggestedHabit &&
-        (!parsed.suggestedHabit.name ||
-         !parsed.suggestedHabit.reason)) {
-      parsed.suggestedHabit = null;
-    }
-
-    return parsed;
-  } catch (e) {
-    console.warn("[InsightsAgent] JSON parse failed:", e.message);
-    return {};
+    const clean = raw.replace(/```json\n?|```/g, '').trim();
+    const report = JSON.parse(clean);
+    return { ...report, period, generatedAt: new Date().toISOString() };
+  } catch {
+    return { ...FALLBACK_INSIGHT, period, generatedAt: new Date().toISOString() };
   }
 }
-
-function stripMeta(raw) {
-  return (raw || "")
-    .replace(/\{[\s\S]*"suggestedHabit"[\s\S]*\}/, "")
-    .trim();
-}
-
-async function getInsightFromData(userId, data) {
-  const prompt = `
-    ${data.isMonthly ? "Monthly" : "Weekly"} summary data:
-    - Journal entries this period: ${data.journalCount}
-    - Top emotion: ${data.topEmotion || "none recorded"}
-    - All emotions recorded: ${JSON.stringify(data.emotions)}
-    - Recurring themes: ${JSON.stringify(data.themes)}
-    - Habit performance: ${JSON.stringify(data.habitStats)}
-    ${data.dayBreakdown
-      ? `- Day breakdown: ${JSON.stringify(data.dayBreakdown)}`
-      : ""}
-
-    Write a warm ${data.isMonthly ? "monthly" : "weekly"} reflection.
-    Then suggest a specific habit based on the patterns you see.
-    Remember to end with the JSON block containing suggestedHabit.
-  `;
-
-  const raw        = await chat(SYSTEM_PROMPT, prompt);
-  const reflection = stripMeta(raw);
-  const meta       = extractMeta(raw);
-
-  // Fallback if agent still returns empty suggestedHabit
-  const suggestedHabit = meta.suggestedHabit || (
-    data.topEmotion === "anxious" || data.topEmotion === "stressed"
-      ? { name: "Morning breathing", reason: "A daily breathing practice can help manage anxiety" }
-      : { name: "Evening reflection", reason: "A short daily check-in builds self-awareness" }
-  );
-
-  return { reflection, suggestedHabit, data };
-}
-
-async function getWeeklyInsight(userId) {
-  const data = await insightsSvc.getWeeklyData(userId);
-  return await getInsightFromData(userId, data);
-}
-
-module.exports = { getWeeklyInsight, getInsightFromData };

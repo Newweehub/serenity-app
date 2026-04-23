@@ -1,9 +1,15 @@
-const router = require("express").Router();
-const ctrl   = require("../controllers/journalController");
-const auth   = require("../middleware/auth");
+import { Router } from 'express';
+import { create, list, getOne, getPrompt } from '../controllers/journalController.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import { validate } from '../middleware/validate.js';
 
-router.get("/",          auth, ctrl.getEntries);
-router.get("/:userId",   ctrl.getEntries);
-router.post("/",         auth, ctrl.createEntry);
+const router = Router();
 
-module.exports = router;
+// Note: /prompt must be registered BEFORE /:id to avoid Express matching
+// "prompt" as an id parameter
+router.get('/prompt',   asyncHandler(getPrompt));
+router.get('/',         asyncHandler(list));
+router.get('/:id',      asyncHandler(getOne));
+router.post('/', validate(['freeText']), asyncHandler(create));
+
+export default router;

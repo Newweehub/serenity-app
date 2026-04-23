@@ -1,37 +1,47 @@
-const { db } = require("../config/db");
+import { containers } from './cosmosClient.js';
 
-const CONTAINER = "habits";
+/**
+ * Habit Repository
+ * Raw Cosmos DB access for the habits container.
+ */
 
-async function findByUser(userId) {
-  const { resources } = await db
-    .container(CONTAINER)
-    .items.query({
-      query: `SELECT * FROM c WHERE c.userId = @userId
-              AND c.active = true ORDER BY c.createdAt DESC`,
-      parameters: [{ name: "@userId", value: userId }]
+export const habitRepository = {
+  async findById(id, userId) {
+    try {
+      const { resource } = await containers.habits().item(id, userId).read();
+      return resource ?? null;
+    } catch (err) {
+      if (err.code === 404) return null;
+      throw err;
+    }
+  },
+
+  async save(habit) {
+    const { resource } = await containers.habits().items.upsert(habit);
+    return resource;
+  },
+
+  async findActiveByUser(userId) {
+    const { resources } = await containers.habits().items.query({
+      query: `
+        SELECT * FROM c
+        WHERE c.userId = @userId AND c.status = 'active'
+        ORDER BY c.createdAt ASC
+      `,
+      parameters: [{ name: '@userId', value: userId }],
     }).fetchAll();
-  return resources;
-}
+    return resources;
+  },
 
-async function findById(userId, habitId) {
-  const { resources } = await db
-    .container(CONTAINER)
-    .items.query({
-      query: `SELECT * FROM c WHERE c.id = @id
-              AND c.userId = @userId`,
-      parameters: [
-        { name: "@id",     value: habitId },
-        { name: "@userId", value: userId  }
-      ]
+  async findAllByUser(userId) {
+    const { resources } = await containers.habits().items.query({
+      query: `SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt ASC`,
+      parameters: [{ name: '@userId', value: userId }],
     }).fetchAll();
-  return resources[0] || null;
-}
+    return resources;
+  },
 
-async function upsert(habit) {
-  const { resource } = await db
-    .container(CONTAINER)
-    .items.upsert(habit);
-  return resource;
-}
-
-module.exports = { findByUser, findById, upsert };
+  async delete(id, userId) {
+    await containers.habits().item(id, userId).delete();
+  },
+};

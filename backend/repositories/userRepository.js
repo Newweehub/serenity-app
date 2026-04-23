@@ -1,24 +1,30 @@
-const { db } = require("../config/db");
+import { containers } from './cosmosClient.js';
 
-const CONTAINER = "users";
+/**
+ * User Repository
+ * Raw Cosmos DB access for the users container.
+ * No business logic here — only data access.
+ */
 
-async function findById(userId) {
-  try {
-    const { resource } = await db
-      .container(CONTAINER)
-      .item(userId, userId)
-      .read();
-    return resource || null;
-  } catch {
-    return null;
-  }
-}
+export const userRepository = {
+  async findById(userId) {
+    try {
+      const { resource } = await containers.users().item(userId, userId).read();
+      return resource ?? null;
+    } catch (err) {
+      if (err.code === 404) return null;
+      throw err;
+    }
+  },
 
-async function upsert(user) {
-  const { resource } = await db
-    .container(CONTAINER)
-    .items.upsert(user);
-  return resource;
-}
+  async upsert(user) {
+    const { resource } = await containers.users().items.upsert(user);
+    return resource;
+  },
 
-module.exports = { findById, upsert };
+  async findOrCreate(userId, defaults) {
+    const existing = await userRepository.findById(userId);
+    if (existing) return existing;
+    return userRepository.upsert({ ...defaults, id: userId, userId });
+  },
+};

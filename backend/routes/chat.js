@@ -1,8 +1,10 @@
-const router = require("express").Router();
-const ctrl   = require("../controllers/chatController");
-const auth   = require("../middleware/auth");
+import { Router } from 'express';
+import { chat } from '../controllers/chatController.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import { validate } from '../middleware/validate.js';
 
-router.post("/",      auth, ctrl.chat);
-router.post("/mood",  auth, ctrl.moodCheckin);
+const router = Router();
 
-module.exports = router;
+router.post('/', validate(['message']), asyncHandler(chat));
+
+export default router;

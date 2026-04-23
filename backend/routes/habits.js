@@ -1,10 +1,15 @@
-const router = require("express").Router();
-const ctrl   = require("../controllers/habitController");
-const auth   = require("../middleware/auth");
+import { Router } from 'express';
+import { list, create, checkIn, updateStatus, suggest } from '../controllers/habitController.js';
+import { asyncHandler } from '../middleware/errorHandler.js';
+import { validate } from '../middleware/validate.js';
 
-router.get("/:userId",              ctrl.getHabits);
-router.get("/:userId/suggest",      ctrl.getSuggestion);
-router.post("/",              auth, ctrl.createHabit);
-router.patch("/:habitId/check", auth, ctrl.checkOff);
+const router = Router();
 
-module.exports = router;
+// Static paths before parameterised ones
+router.get('/',                                           asyncHandler(list));
+router.post('/',          validate(['name']),             asyncHandler(create));
+router.post('/suggest',   validate(['message']),          asyncHandler(suggest));
+router.post('/:id/checkin', validate(['completed']),      asyncHandler(checkIn));
+router.patch('/:id/status', validate(['status']),         asyncHandler(updateStatus));
+
+export default router;

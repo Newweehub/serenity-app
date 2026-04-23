@@ -1,58 +1,65 @@
-const { chat }   = require("../services/llmService");
-const contextSvc = require("../services/contextService");
+import { openaiClient, MODEL } from './openaiClient.js';
+import { prompts } from './prompts.js';
 
-const SYSTEM_PROMPT = `
-You are Max, a habit coach.
-Your ONLY job is to help users build and maintain habits.
+/**
+ * Generate a reframing message for a missed habit.
+ * Rotates through strategies so the user never sees the same message twice.
+ */
+export async function generateReframe(habit, context) {
+  const usedStrategies = habit.aiMeta?.reframingStrategies ?? [];
 
-STRICT RULES — never break these:
-- NEVER suggest journaling prompts or mindfulness exercises
-- NEVER guilt-trip or pressure the user
-- When a habit is missed: validate first, then suggest a SMALLER version
-- Keep responses to 2-3 sentences maximum
-- Only respond when directly asked or when a habit event occurs
+  const response = await openaiClient.chat.completions.create({
+    model: MODEL,
+    max_tokens: 80,
+    temperature: 0.8,
+    messages: [
+      { role: 'system', content: prompts.habitCoach(context) },
+      {
+        role: 'user',
+        content: `The user missed their habit: "${habit.name}".
+Write ONE short, warm reframing message (1-2 sentences). 
+Do NOT use any of these already-used messages: ${usedStrategies.join(' | ') || 'none'}.
+Reply with only the message — no preamble.`,
+      },
+    ],
+  });
 
-After every response include this JSON on its own line:
-{"event": "missed", "habitName": "Morning breathing", "suggestion": "Try 60 seconds instead"}
+  return response.choices[0]?.message?.content?.trim() ?? "Missing once doesn't break your progress — tomorrow is a fresh start.";
+}
 
-Valid event values: "checked", "missed", "added", "removed", "general", null
-`;
+/**
+ * Suggest a new habit based on the user's stated goal or journal mention.
+ * Returns a structured suggestion the controller can confirm with the user.
+ */
+export async function suggestHabit(userMessage, context) {
+  const response = await openaiClient.chat.completions.create({
+    model: MODEL,
+    max_tokens: 200,
+    temperature: 0.6,
+    messages: [
+      { role: 'system', content: prompts.habitCoach(context) },
+      {
+        role: 'user',
+        content: `Based on this message, suggest ONE specific habit. Return JSON only:
+{
+  "name": "...",
+  "category": "sleep|movement|mindfulness|nutrition|social|other",
+  "goal": "...",
+  "suggestedTime": "HH:MM",
+  "timeReason": "...",
+  "confirmationMessage": "..."
+}
 
-async function suggestHabit(userId) {
-  const context = await contextSvc.getContext(userId);
-  const prompt  = `
-    Goals: ${context.goals?.join(", ") || "general wellbeing"}
-    Recurring journal themes: ${context.recurringThemes?.join(", ") || "none"}
-    Dominant emotion: ${context.dominantEmotion || "neutral"}
-    Current habits: ${context.activeHabits?.join(", ") || "none yet"}
-    Suggest ONE specific small habit. Respond ONLY with:
-    {"name": "habit name", "reason": "why this helps", "category": "category"}
-  `;
-  const raw = await chat(SYSTEM_PROMPT, prompt);
+User message: "${userMessage}"`,
+      },
+    ],
+  });
+
+  const raw = response.choices[0]?.message?.content ?? '';
   try {
-    const match = raw.match(/\{.*\}/s);
-    return match ? JSON.parse(match[0]) : null;
+    const clean = raw.replace(/```json\n?|```/g, '').trim();
+    return JSON.parse(clean);
   } catch {
     return null;
   }
 }
-
-async function handleMissedHabit(habitName, context) {
-  const prompt  = `
-    User missed their "${habitName}" habit.
-    Goal: ${context.goals?.join(", ") || "general wellbeing"}
-    Encourage them and suggest a smaller version they can do right now.
-  `;
-  const content = await chat(SYSTEM_PROMPT, prompt);
-  return { content };
-}
-
-async function getRawResponse(message, history = []) {
-  return await chat(SYSTEM_PROMPT, message, history);
-}
-
-module.exports = {
-  getRawResponse,
-  suggestHabit,
-  handleMissedHabit
-};
