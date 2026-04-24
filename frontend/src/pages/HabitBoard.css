@@ -1,0 +1,182 @@
+.habit-board { display: flex; flex-direction: column; gap: 20px; max-width: 800px; }
+
+.board-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.board-subtext { font-size: 13px; color: var(--ink-faint); }
+
+.btn-add-habit {
+  padding: 8px 20px;
+  border: 1.5px solid var(--forest);
+  border-radius: var(--radius-xl);
+  font-size: 13px;
+  color: var(--forest);
+  background: white;
+  font-weight: 500;
+  transition: background 0.2s, color 0.2s;
+}
+.btn-add-habit:hover { background: var(--forest); color: var(--parchment); }
+
+/* ── Add panel ───────────────────────────────────────────────────────────── */
+.add-habit-panel {
+  background: white;
+  border: 1px solid var(--mist);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.add-section { display: flex; flex-direction: column; gap: 12px; }
+
+.add-section-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--forest);
+}
+
+.suggest-form, .manual-form {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.suggest-input, .manual-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 9px 14px;
+  border: 1px solid var(--sage-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--ink);
+  transition: border-color 0.2s;
+}
+
+.suggest-input:focus, .manual-input:focus {
+  outline: none;
+  border-color: var(--forest-light);
+}
+
+.manual-select {
+  padding: 9px 12px;
+  border: 1px solid var(--sage-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--ink);
+  background: white;
+  cursor: pointer;
+}
+
+.btn-suggest, .btn-manual-add {
+  padding: 9px 20px;
+  background: var(--forest);
+  color: var(--parchment);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  transition: opacity 0.2s, background 0.2s;
+  white-space: nowrap;
+}
+.btn-suggest:hover:not(:disabled),
+.btn-manual-add:hover:not(:disabled) { background: var(--forest-mid); }
+.btn-suggest:disabled,
+.btn-manual-add:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Suggestion card ─────────────────────────────────────────────────────── */
+.suggestion-card {
+  background: var(--parchment);
+  border-radius: var(--radius-md);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.suggestion-confirm-msg {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-style: italic;
+  color: var(--forest);
+  line-height: 1.5;
+}
+
+.suggestion-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sug-field {
+  font-size: 13px;
+  color: var(--ink-light);
+}
+
+.suggestion-actions { display: flex; gap: 10px; }
+
+.btn-confirm-sug {
+  padding: 8px 20px;
+  background: var(--forest);
+  color: var(--parchment);
+  border-radius: var(--radius-xl);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.2s;
+}
+.btn-confirm-sug:hover:not(:disabled) { background: var(--forest-mid); }
+.btn-confirm-sug:disabled { opacity: 0.5; }
+
+.btn-decline-sug {
+  padding: 8px 20px;
+  border: 1px solid var(--sage-light);
+  border-radius: var(--radius-xl);
+  font-size: 13px;
+  color: var(--ink-light);
+  background: white;
+  transition: border-color 0.2s;
+}
+.btn-decline-sug:hover { border-color: var(--sage); }
+
+/* ── Divider ─────────────────────────────────────────────────────────────── */
+.add-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--ink-faint);
+  font-size: 12px;
+}
+.add-divider::before, .add-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--mist);
+}
+
+/* ── Habit grid ──────────────────────────────────────────────────────────── */
+.habit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
+}
+
+.board-skeletons { display: flex; flex-direction: column; gap: 12px; }
+
+.board-empty {
+  text-align: center;
+  padding: 48px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.empty-text {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-style: italic;
+  color: var(--forest);
+}
+
+.empty-sub { font-size: 13px; color: var(--ink-faint); }

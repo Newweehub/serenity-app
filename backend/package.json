@@ -1,0 +1,28 @@
+{
+  "name": "serenity-backend",
+  "version": "1.0.0",
+  "description": "Serenity app — Express.js backend (JavaScript ESM)",
+  "type": "module",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "node --watch src/app.js",
+    "test": "node --test tests/"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.9.2",
+    "@azure/search-documents": "^12.2.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "openai": "^6.34.0",
+    "uuid": "^13.0.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
+

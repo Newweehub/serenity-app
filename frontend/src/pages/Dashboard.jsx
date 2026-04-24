@@ -1,274 +1,164 @@
-import { useState, useEffect }    from "react";
-import { useNavigate }            from "react-router-dom";
-import { useUser }                from "../context/UserContext";
-import HandoffCard                from "../components/HandoffCard";
-import { getTodayProgress }       from "../utils/journey";
-import { checkInMood, getStats,
-         getHabitSuggestion,
-         addHabit }               from "../services/api";
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useUser } from '../hooks/useUser.js';
+import { useApi } from '../hooks/useApi.js';
+import { api } from '../lib/api.js';
+import './Dashboard.css';
 
 const MOODS = [
-  { emoji: "😔", label: "sad"        },
-  { emoji: "😐", label: "neutral"    },
-  { emoji: "😊", label: "happy"      },
-  { emoji: "😌", label: "calm"       },
-  { emoji: "😤", label: "frustrated" }
+  { emoji: '😔', label: 'Low',      score: 2 },
+  { emoji: '😕', label: 'Meh',      score: 4 },
+  { emoji: '😐', label: 'Okay',     score: 5 },
+  { emoji: '🙂', label: 'Good',     score: 7 },
+  { emoji: '😊', label: 'Great',    score: 9 },
 ];
 
-const FOCUS_ITEMS = [
-  { label: "Morning breathing", sub: "5 min · mindfulness",
-    accent: "#E1F5EE", color: "#1D9E75", path: "/mindfulness" },
-  { label: "Daily journal",     sub: "Reflect on your day",
-    accent: "#EEEDFE", color: "#534AB7", path: "/journal"     }
-];
-
-const STEPS      = ["Journal", "Mindfulness", "Habits", "Insights"];
-const STEP_PATHS = ["/journal", "/mindfulness", "/habits", "/insights"];
-
-// ── Today's journey progress bar ──────────────────────────────
-function TodayJourney({ userId }) {
-  const navigate = useNavigate();
-  const done     = getTodayProgress(userId);
-
-  return (
-    <div style={{
-      background: "#fff", border: "0.5px solid #e0e0d8",
-      borderRadius: 12, padding: "14px 16px", marginBottom: 16
-    }}>
-      <div style={{
-        fontSize: 12, color: "#aaa", marginBottom: 10
-      }}>
-        Today's journey
-      </div>
-      <div style={{ display: "flex", alignItems: "center" }}>
-        {STEPS.map((step, i) => (
-          <div key={i} style={{
-            display: "flex", alignItems: "center", flex: 1
-          }}>
-            <div
-              onClick={() => navigate(STEP_PATHS[i])}
-              style={{
-                display: "flex", flexDirection: "column",
-                alignItems: "center", gap: 4, cursor: "pointer"
-              }}>
-              <div style={{
-                width: 24, height: 24, borderRadius: "50%",
-                background: done[step] ? "#1D9E75" : "#f1f0ea",
-                border: `1.5px solid ${done[step]
-                  ? "#1D9E75" : "#e0e0d8"}`,
-                display: "flex", alignItems: "center",
-                justifyContent: "center",
-                transition: "all 0.2s"
-              }}>
-                {done[step] && (
-                  <svg width="10" height="10" fill="none"
-                       viewBox="0 0 10 10">
-                    <path d="M2 5l2.5 2.5L8 3"
-                          stroke="#fff" strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"/>
-                  </svg>
-                )}
-              </div>
-              <div style={{
-                fontSize: 10,
-                color: done[step] ? "#1D9E75" : "#aaa",
-                fontWeight: done[step] ? 500 : 400
-              }}>
-                {step}
-              </div>
-            </div>
-            {i < STEPS.length - 1 && (
-              <div style={{
-                flex: 1, height: 1.5, marginBottom: 16,
-                background: done[step] ? "#1D9E75" : "#e0e0d8",
-                transition: "background 0.3s"
-              }} />
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+function greeting(name) {
+  const h = new Date().getHours();
+  const salutation = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  return `${salutation}, ${name || 'friend'}.`;
 }
 
-// ── Main Dashboard component ───────────────────────────────────
 export default function Dashboard() {
-  const { user }            = useUser();
   const navigate            = useNavigate();
-  const [mood,       setMood]       = useState(null);
-  const [aiMessage,  setAiMessage]  = useState("");
-  const [stats,      setStats]      = useState(null);
-  const [suggestion, setSuggestion] = useState(null);
-  const [addedHabit, setAddedHabit] = useState(false);
+  const { user }            = useUser();
+  const { data: habitsData, loading: habitsLoading } = useApi(() => api.habits.list());
 
-  useEffect(() => {
-    getStats(user.userId).then(setStats).catch(() => {});
-    getHabitSuggestion(user.userId).then(setSuggestion).catch(() => {});
-  }, [user.userId]);
+  const [selectedMood, setSelectedMood] = useState(null);
+  const [moodSaved,    setMoodSaved]    = useState(false);
 
-  const handleMood = async (index) => {
-    setMood(index);
+  const habits = habitsData?.habits ?? [];
+  const today  = new Date().toISOString().slice(0, 10);
+  const doneToday  = habits.filter(h => h.checkIns?.some(c => c.date === today && c.completed)).length;
+  const totalActive = habits.length;
+
+  const streaks = user?.streaks ?? {};
+  const memory  = user?.memoryContext ?? {};
+
+  async function handleMoodSelect(mood) {
+    setSelectedMood(mood);
+    // Log as a quick journal entry with just a mood score
     try {
-      const res = await checkInMood(user.userId, MOODS[index].label);
-      setAiMessage(res.message);
-    } catch {}
-  };
-
-  const handleAddSuggestion = async () => {
-    if (!suggestion || addedHabit) return;
-    try {
-      await addHabit(user.userId, suggestion.name, suggestion.category);
-      setAddedHabit(true);
-    } catch {}
-  };
-
-  const completionPct = stats?.habitStats?.length
-    ? Math.round(
-        (stats.habitStats.reduce((a, h) => a + h.completed, 0) /
-         (stats.habitStats.length * 7)) * 100
-      )
-    : 0;
-
-  // Decide handoff message based on today's progress
-  const done           = getTodayProgress(user.userId);
-  const nextStep       = STEPS.find(s => !done[s]);
-  const handoffMessage = nextStep
-    ? `Ready to continue? Your next step is ${nextStep}.`
-    : "You've completed today's full journey. Great work!";
-  const handoffTo      = nextStep
-    ? STEP_PATHS[STEPS.indexOf(nextStep)]
-    : "/insights";
-  const handoffLabel   = nextStep ? `Go to ${nextStep}` : "See insights";
+      await api.journal.create({
+        freeText: `Daily mood check-in: ${mood.label}`,
+        moodEmoji: mood.emoji,
+        moodScore: mood.score,
+      });
+      setMoodSaved(true);
+    } catch {
+      // Non-critical — don't block the user
+    }
+  }
 
   return (
-    <div>
-      {/* ── Today's journey ── */}
-      <TodayJourney userId={user.userId} />
+    <div className="dashboard stagger">
 
-      {/* ── Mood check-in ── */}
-      <div style={{
-        background: "#E1F5EE", borderRadius: 14,
-        padding: "16px 18px", marginBottom: 20
-      }}>
-        <div style={{
-          fontSize: 12, color: "#085041",
-          fontWeight: 500, marginBottom: 10
-        }}>
-          How are you feeling today?
-        </div>
-        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-          {MOODS.map((m, i) => (
-            <button key={i} onClick={() => handleMood(i)} style={{
-              flex: 1, padding: "8px 4px", borderRadius: 10,
-              border: mood === i
-                ? "1.5px solid #1D9E75"
-                : "0.5px solid #9FE1CB",
-              background: mood === i ? "#9FE1CB" : "#fff",
-              fontSize: 20
-            }}>
-              {m.emoji}
-            </button>
-          ))}
-        </div>
-        {aiMessage && (
-          <div style={{
-            fontSize: 12, color: "#0F6E56",
-            lineHeight: 1.6, marginTop: 4
-          }}>
-            {aiMessage}
-          </div>
+      {/* Greeting */}
+      <div className="dash-greeting fade-up">
+        <h2 className="greeting-text">{greeting(user?.profile?.displayName)}</h2>
+        {memory.lastSessionSummary && (
+          <p className="last-session">Last time: {memory.lastSessionSummary}</p>
         )}
       </div>
 
-      {/* ── Stats ── */}
-      {stats && (
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(4, minmax(0,1fr))",
-          gap: 10, marginBottom: 20
-        }}>
-          {[
-            { val: stats.journalCount,
-              label: "journals this week", color: "#534AB7" },
-            { val: `${completionPct}%`,
-              label: "habit completion",   color: "#1D9E75" },
-            { val: Object.keys(stats.emotions || {}).length,
-              label: "emotions tracked",   color: "#1D9E75" },
-            { val: user.streakDays || 0,
-              label: "day streak",         color: "#D4537E" }
-          ].map((s, i) => (
-            <div key={i} style={{
-              background: "#f1f0ea",
-              borderRadius: 8, padding: "12px 14px"
-            }}>
-              <div style={{
-                fontSize: 22, fontWeight: 500, color: s.color
-              }}>
-                {s.val}
-              </div>
-              <div style={{
-                fontSize: 11, color: "#aaa", marginTop: 2
-              }}>
-                {s.label}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── Focus + suggestion ── */}
-      <div style={{
-        display: "grid",
-        gridTemplateColumns: "minmax(0,1.4fr) minmax(0,1fr)",
-        gap: 12
-      }}>
-        <div style={{
-          background: "#fff", border: "0.5px solid #e0e0d8",
-          borderRadius: 12, padding: 16
-        }}>
-          <div style={{
-            fontSize: 13, fontWeight: 500, marginBottom: 12
-          }}>
-            Today's focus
+      {/* Mood check-in */}
+      <section className="dash-card mood-card fade-up">
+        <h3 className="card-label">How are you feeling right now?</h3>
+        {!moodSaved ? (
+          <div className="mood-row">
+            {MOODS.map(m => (
+              <button
+                key={m.score}
+                className={`mood-btn ${selectedMood?.score === m.score ? 'selected' : ''}`}
+                onClick={() => handleMoodSelect(m)}
+                aria-label={m.label}
+              >
+                <span className="mood-emoji">{m.emoji}</span>
+                <span className="mood-label">{m.label}</span>
+              </button>
+            ))}
           </div>
-          {FOCUS_ITEMS.map((item, i) => (
-            <div key={i} onClick={() => navigate(item.path)}
-              style={{
-                display: "flex", alignItems: "center",
-                gap: 10, padding: "10px 12px", borderRadius: 10,
-                border: "0.5px solid #e0e0d8", marginBottom: 8,
-                cursor: "pointer", background: "#fafaf8"
-              }}>
-              <div style={{
-                width: 32, height: 32, borderRadius: 8,
-                background: item.accent, flexShrink: 0
-              }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 12, fontWeight: 500 }}>
-                  {item.label}
-                </div>
-                <div style={{ fontSize: 11, color: "#aaa" }}>
-                  {item.sub}
-                </div>
-              </div>
-              <div style={{
-                fontSize: 11, color: item.color, fontWeight: 500
-              }}>
-                Start →
-              </div>
-            </div>
-          ))}
+        ) : (
+          <p className="mood-saved fade-in">
+            {selectedMood?.emoji} Noted — thanks for checking in.
+          </p>
+        )}
+      </section>
+
+      {/* Stats row */}
+      <div className="dash-stats fade-up">
+        <div className="stat-card" onClick={() => navigate('/journal')}>
+          <span className="stat-value">{streaks.journalStreak ?? 0}</span>
+          <span className="stat-label">Journal streak</span>
+          <span className="stat-unit">days</span>
+        </div>
+        <div className="stat-card" onClick={() => navigate('/mindfulness')}>
+          <span className="stat-value">{streaks.mindfulnessStreak ?? 0}</span>
+          <span className="stat-label">Mindfulness streak</span>
+          <span className="stat-unit">days</span>
+        </div>
+        <div className="stat-card" onClick={() => navigate('/habits')}>
+          <span className="stat-value">{habitsLoading ? '—' : `${doneToday}/${totalActive}`}</span>
+          <span className="stat-label">Habits today</span>
+          <span className="stat-unit">done</span>
+        </div>
+        <div className="stat-card" onClick={() => navigate('/insight')}>
+          <span className="stat-value mood-trend-val">
+            {memory.moodTrend === 'improving' ? '↑' : memory.moodTrend === 'declining' ? '↓' : '→'}
+          </span>
+          <span className="stat-label">Mood trend</span>
+          <span className="stat-unit">{memory.moodTrend ?? 'stable'}</span>
         </div>
       </div>
 
-      {/* ── Handoff card ── */}
-      <HandoffCard
-        message={handoffMessage}
-        buttonLabel={handoffLabel}
-        to={handoffTo}
-        state={{}}
-      />
+      {/* Habits focus today */}
+      <section className="dash-card fade-up">
+        <div className="card-header-row">
+          <h3 className="card-label">Today's focus</h3>
+          <button className="card-link" onClick={() => navigate('/habits')}>
+            View all →
+          </button>
+        </div>
+        {habitsLoading ? (
+          <div className="dash-skeletons">
+            {[1,2,3].map(i => <div key={i} className="skeleton" style={{ height: 36 }} />)}
+          </div>
+        ) : habits.length === 0 ? (
+          <p className="dash-empty">
+            No habits yet.{' '}
+            <button className="inline-link" onClick={() => navigate('/habits')}>
+              Add one →
+            </button>
+          </p>
+        ) : (
+          <ul className="focus-habit-list">
+            {habits.slice(0, 4).map(h => {
+              const done = h.checkIns?.some(c => c.date === today && c.completed);
+              return (
+                <li key={h.id} className={`focus-habit-item ${done ? 'done' : ''}`}>
+                  <span className="focus-check">{done ? '✓' : '○'}</span>
+                  <span className="focus-name">{h.name}</span>
+                  <span className="focus-streak">{h.streak?.current ?? 0}d</span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      {/* Quick nav */}
+      <div className="dash-quick-nav fade-up">
+        <button className="quick-btn" onClick={() => navigate('/journal')}>
+          <span>✦</span> Write in journal
+        </button>
+        <button className="quick-btn" onClick={() => navigate('/mindfulness')}>
+          <span>◌</span> Start exercise
+        </button>
+        <button className="quick-btn" onClick={() => navigate('/insight')}>
+          <span>◈</span> View insights
+        </button>
+      </div>
+
     </div>
   );
 }
