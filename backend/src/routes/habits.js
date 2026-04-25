@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { list, create, checkIn, updateStatus, suggest } from '../controllers/habitController.js';
+import { list, create, checkIn, updateStatus, suggest, updateSchedule } from '../controllers/habitController.js';
 import { asyncHandler } from '../middleware/errorHandler.js';
 import { validate } from '../middleware/validate.js';
 
@@ -10,6 +10,7 @@ router.get('/',                                           asyncHandler(list));
 router.post('/',          validate(['name']),             asyncHandler(create));
 router.post('/suggest',   validate(['message']),          asyncHandler(suggest));
 router.post('/:id/checkin', validate(['completed']),      asyncHandler(checkIn));
-router.patch('/:id/status', validate(['status']),         asyncHandler(updateStatus));
+router.patch('/:id/status',   validate(['status']),      asyncHandler(updateStatus));
+router.patch('/:id/schedule',                              asyncHandler(updateSchedule));
 
 export default router;

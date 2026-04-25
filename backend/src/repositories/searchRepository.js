@@ -1,5 +1,5 @@
 import { SearchClient, AzureKeyCredential } from '@azure/search-documents';
-import { config } from '../config/db.js';
+import { config } from '../config/index.js';
 
 /**
  * Search Repository

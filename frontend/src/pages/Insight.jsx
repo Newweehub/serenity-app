@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi.js';
 import { api } from '../lib/api.js';
 import './Insight.css';
@@ -6,13 +7,15 @@ import './Insight.css';
 const PERIODS = ['week', 'month', 'year'];
 
 const TREND_DISPLAY = {
-  improving: { label: 'Improving',  icon: '↑', color: 'var(--forest-light)' },
-  stable:    { label: 'Stable',     icon: '→', color: 'var(--amber-warm)'   },
-  declining: { label: 'Declining',  icon: '↓', color: 'var(--blush)'        },
+  improving: { label: 'Improving', icon: '↑', color: 'var(--forest-light)' },
+  stable:    { label: 'Stable',    icon: '→', color: 'var(--amber-warm)'   },
+  declining: { label: 'Declining', icon: '↓', color: 'var(--blush)'        },
 };
 
 export default function Insight() {
+  const navigate = useNavigate();
   const [period, setPeriod] = useState('week');
+  const [addedHabits, setAddedHabits] = useState({});
 
   const { data, loading, error, refetch } = useApi(
     () => api.insights.get(period),
@@ -22,17 +25,30 @@ export default function Insight() {
   const report = data?.report;
   const trend  = TREND_DISPLAY[report?.moodTrend] ?? TREND_DISPLAY.stable;
 
+  // Add a suggested habit from insight directly to the habit board
+  async function addSuggestionToBoard(suggestion) {
+    try {
+      await api.habits.create({
+        name: suggestion,
+        category: 'other',
+        goal: 'Suggested from Insight',
+        addedVia: 'ai_suggestion',
+      });
+      setAddedHabits(prev => ({ ...prev, [suggestion]: true }));
+    } catch {
+      alert('Could not add to Habit Board. Please try again.');
+    }
+  }
+
   return (
     <div className="insight-page">
 
-      {/* Period tabs */}
+      {/* ── Period tabs ── */}
       <div className="period-tabs fade-up">
         {PERIODS.map(p => (
-          <button
-            key={p}
+          <button key={p}
             className={`period-tab ${period === p ? 'active' : ''}`}
-            onClick={() => setPeriod(p)}
-          >
+            onClick={() => setPeriod(p)}>
             This {p}
           </button>
         ))}
@@ -40,8 +56,8 @@ export default function Insight() {
 
       {loading && (
         <div className="insight-loading stagger">
-          {[1,2,3].map(i => (
-            <div key={i} className="skeleton" style={{ height: i === 1 ? 100 : 72 }} />
+          {[120, 72, 72, 72].map((h, i) => (
+            <div key={i} className="skeleton" style={{ height: h }} />
           ))}
         </div>
       )}
@@ -56,7 +72,7 @@ export default function Insight() {
       {report && !loading && (
         <div className="insight-content stagger">
 
-          {/* Headline card */}
+          {/* ── Headline card ── */}
           <div className="insight-card headline-card fade-up">
             <div className="headline-top">
               <span className="headline-icon">🌿</span>
@@ -65,7 +81,7 @@ export default function Insight() {
             <h2 className="headline-text">{report.headline}</h2>
           </div>
 
-          {/* Stats row */}
+          {/* ── Stats row ── */}
           <div className="insight-stats fade-up">
             <div className="insight-stat-card">
               <span className="istat-value" style={{ color: trend.color }}>
@@ -93,7 +109,27 @@ export default function Insight() {
             </div>
           </div>
 
-          {/* Patterns */}
+          {/* ── Encouragement & coaching from reflect ── */}
+          {report.headline && (
+            <div className="insight-card encouragement-card fade-up">
+              <div className="encouragement-header">
+                <span>💚</span>
+                <h3 className="insight-card-title" style={{ marginBottom: 0 }}>
+                  A note from Serenity
+                </h3>
+              </div>
+              <p className="encouragement-text">
+                {report.moodTrend === 'improving'
+                  ? `You're doing really well. Your ${period}'s data shows real growth — the patterns you're building are working. Keep going.`
+                  : report.moodTrend === 'declining'
+                  ? `This ${period} has felt heavy, and that's okay. You showed up anyway. Serenity is here — let's take it one small step at a time.`
+                  : `You're holding steady. Consistency like this is underrated — it's the foundation of everything. You're doing better than you think.`
+                }
+              </p>
+            </div>
+          )}
+
+          {/* ── Patterns we noticed ── */}
           {report.patterns?.length > 0 && (
             <div className="insight-card fade-up">
               <h3 className="insight-card-title">Patterns we noticed</h3>
@@ -108,11 +144,25 @@ export default function Insight() {
             </div>
           )}
 
-          {/* Suggestion */}
+          {/* ── Suggestion + Add to Habit Board ── */}
           {report.suggestion && (
             <div className="insight-card suggestion-card fade-up">
               <div className="suggestion-label">✦ One small step</div>
               <p className="suggestion-body">{report.suggestion}</p>
+              <div className="suggestion-cta-row">
+                <button
+                  className={`btn-add-insight-habit ${addedHabits[report.suggestion] ? 'added' : ''}`}
+                  onClick={() => addSuggestionToBoard(report.suggestion)}
+                  disabled={addedHabits[report.suggestion]}
+                >
+                  {addedHabits[report.suggestion]
+                    ? '✓ Added to Habit Board'
+                    : '+ Try this — add to Habit Board'}
+                </button>
+                <button className="btn-view-board" onClick={() => navigate('/habits')}>
+                  View Habit Board →
+                </button>
+              </div>
             </div>
           )}
 

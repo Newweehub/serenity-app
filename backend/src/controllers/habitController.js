@@ -47,3 +47,12 @@ export async function suggest(req, res) {
   }
   res.json({ suggestion });
 }
+
+/**
+ * PATCH /api/habits/:id/schedule
+ * Body: { targetDate?, targetTime?, reminderOffsetMinutes? }
+ */
+export async function updateSchedule(req, res) {
+  const habit = await habitService.updateSchedule(req.params.id, req.userId, req.body);
+  res.json({ habit });
+}

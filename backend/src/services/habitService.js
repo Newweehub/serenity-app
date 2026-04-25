@@ -17,7 +17,7 @@ export async function getActiveHabits(userId) {
 /**
  * Create a new habit after user confirms AI suggestion or manually.
  */
-export async function createHabit(userId, { name, category, goal, schedule, addedVia = 'manual', originalUserMessage = '' }) {
+export async function createHabit(userId, { name, category, goal, schedule, addedVia = 'manual', originalUserMessage = '', aiMeta = {} }) {
   const habit = {
     id: generateId(),
     userId,
@@ -36,6 +36,7 @@ export async function createHabit(userId, { name, category, goal, schedule, adde
       addedVia,
       originalUserMessage,
       reframingStrategies: [],
+      exerciseId: aiMeta.exerciseId ?? null,
     },
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -139,4 +140,20 @@ export async function recalculateAdherence(userId) {
   }
 
   return score;
+}
+
+/**
+ * Update a habit's schedule (reminder date and time).
+ */
+export async function updateSchedule(habitId, userId, { targetDate, targetTime, reminderOffsetMinutes }) {
+  const habit = await habitRepository.findById(habitId, userId);
+  if (!habit) throw Object.assign(new Error('Habit not found'), { status: 404 });
+  habit.schedule = {
+    ...habit.schedule,
+    ...(targetDate !== undefined && { targetDate }),
+    ...(targetTime !== undefined && { targetTime }),
+    ...(reminderOffsetMinutes !== undefined && { reminderOffsetMinutes }),
+  };
+  habit.updatedAt = new Date().toISOString();
+  return habitRepository.save(habit);
 }

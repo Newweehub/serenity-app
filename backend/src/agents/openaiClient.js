@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { config } from '../config/db.js';
+import { config } from '../config/index.js';
 
 // Singleton client pointed at Azure AI Foundry
 export const openaiClient = new OpenAI({

@@ -48,7 +48,8 @@ export const api = {
     list:         ()              => get('/habits'),
     create:       (data)          => post('/habits', data),
     checkIn:      (id, data)      => post(`/habits/${id}/checkin`, data),
-    updateStatus: (id, status)    => patch(`/habits/${id}/status`, { status }),
+    updateStatus:   (id, status)  => patch(`/habits/${id}/status`, { status }),
+    updateSchedule: (id, data)    => patch(`/habits/${id}/schedule`, data),
     suggest:      (message)       => post('/habits/suggest', { message }),
   },
 

@@ -28,7 +28,7 @@ export async function analyzeEntry(freeText, context) {
     max_tokens: 400,
     temperature: 0.3,
     messages: [
-      { role: 'system', content: prompts.journalingReflection(context) },
+      { role: 'system', content: prompts.journalingAnalysis(context) },
       {
         role: 'user',
         content: `The user has finished their journal entry. Return only the JSON analysis block.\n\nEntry:\n${freeText}`,

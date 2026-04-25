@@ -228,3 +228,275 @@
   font-style: italic;
   padding: 20px 0;
 }
+
+/* ── AI follow-up chat ───────────────────────────────────────────────────── */
+.followup-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 280px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.followup-bubble {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.followup-bubble.user {
+  flex-direction: row-reverse;
+}
+
+.bubble-leaf { font-size: 15px; flex-shrink: 0; margin-top: 2px; }
+
+.followup-text {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 300;
+  font-style: italic;
+  color: var(--ink-light);
+  line-height: 1.6;
+  background: var(--mist);
+  border-radius: var(--radius-md);
+  padding: 9px 13px;
+  max-width: 80%;
+}
+
+.followup-bubble.user .followup-text {
+  background: var(--forest);
+  color: var(--parchment);
+  font-style: normal;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+  padding: 12px 14px;
+  background: var(--mist);
+  border-radius: var(--radius-md);
+  align-items: center;
+}
+.typing-dots span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--sage);
+  animation: breathe 1.2s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+.followup-form {
+  display: flex;
+  gap: 8px;
+}
+
+.followup-input {
+  flex: 1;
+  padding: 9px 14px;
+  border: 1px solid var(--sage-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--ink);
+  transition: border-color 0.2s;
+}
+.followup-input:focus { outline: none; border-color: var(--forest-light); }
+
+.followup-send {
+  width: 34px; height: 34px;
+  border-radius: 50%;
+  background: var(--forest);
+  color: var(--parchment);
+  font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s, opacity 0.2s;
+}
+.followup-send:hover:not(:disabled) { background: var(--forest-light); }
+.followup-send:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Mindfulness CTA box ─────────────────────────────────────────────────── */
+.reflection-mindfulness-cta {
+  background: var(--mist);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cta-label {
+  font-size: 13px;
+  color: var(--forest);
+  font-weight: 500;
+}
+
+.cta-exercise-list { display: flex; flex-direction: column; gap: 6px; }
+
+.cta-exercise-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: white;
+  border: 1.5px solid var(--sage-light);
+  border-radius: var(--radius-md);
+  padding: 9px 14px;
+  font-size: 14px;
+  color: var(--forest);
+  transition: border-color 0.2s, background 0.2s;
+  text-align: left;
+}
+.cta-exercise-btn:hover { border-color: var(--forest); background: var(--parchment); }
+
+.cta-duration { font-size: 12px; color: var(--ink-faint); }
+.cta-arrow { margin-left: auto; color: var(--forest-light); }
+
+/* ── Timeline ────────────────────────────────────────────────────────────── */
+.journal-timeline { display: flex; flex-direction: column; gap: 24px; }
+
+.timeline-group { display: flex; flex-direction: column; gap: 0; }
+
+.timeline-date-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.timeline-date-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: var(--sage);
+  border: 2px solid var(--forest);
+  flex-shrink: 0;
+}
+
+.timeline-date-label {
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--forest);
+}
+
+.timeline-entries {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border-left: 2px solid var(--mist);
+  margin-left: 4px;
+  padding-left: 20px;
+}
+
+.timeline-entry {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+
+.timeline-time {
+  font-size: 11px;
+  color: var(--ink-faint);
+  flex-shrink: 0;
+  padding-top: 3px;
+  min-width: 48px;
+}
+
+.timeline-entry-body {
+  flex: 1;
+  background: white;
+  border: 1px solid var(--mist);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  transition: box-shadow 0.2s;
+}
+.timeline-entry-body:hover { box-shadow: 0 2px 12px rgba(26,46,31,0.06); }
+
+.entry-prompt-used {
+  font-size: 11px;
+  color: var(--amber-warm);
+  font-style: italic;
+  flex: 1;
+}
+
+/* ── Entry full-view modal ───────────────────────────────────────────────── */
+.entry-modal-box {
+  background: var(--warm-white);
+  border-radius: var(--radius-lg);
+  padding: 28px;
+  max-width: 600px;
+  width: 100%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.entry-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.entry-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entry-modal-emoji { font-size: 20px; }
+
+.entry-modal-date {
+  font-size: 12px;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.entry-modal-close {
+  font-size: 16px;
+  color: var(--ink-faint);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s;
+}
+.entry-modal-close:hover { background: var(--mist); }
+
+.entry-modal-prompt {
+  font-size: 12px;
+  color: var(--amber-warm);
+  font-style: italic;
+}
+
+.entry-modal-text {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 300;
+  color: var(--ink);
+  line-height: 1.8;
+  white-space: pre-wrap;
+}
+
+.entry-modal-reflection {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--mist);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-style: italic;
+  color: var(--ink-light);
+  line-height: 1.6;
+}
+.reflection-leaf { font-size: 16px; flex-shrink: 0; }
+
+.entry-modal-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* Click hint on timeline entries */
+.timeline-entry:hover .timeline-entry-body {
+  box-shadow: 0 4px 16px rgba(26,46,31,0.1);
+  border-color: var(--sage-light);
+}

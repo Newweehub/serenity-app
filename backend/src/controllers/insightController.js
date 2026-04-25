@@ -1,4 +1,4 @@
-import * as insightService from '../services/insightsService.js';
+import * as insightService from '../services/insightService.js';
 
 /**
  * GET /api/insights
