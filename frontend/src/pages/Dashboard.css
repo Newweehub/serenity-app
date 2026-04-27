@@ -271,3 +271,169 @@
   .dash-quick-nav { flex-direction: column; }
   .quick-btn { justify-content: center; }
 }
+
+/* ── Three-column bottom row ─────────────────────────────────────────────── */
+.dash-bottom-row-3 {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 16px;
+}
+
+/* ── Wearable card ───────────────────────────────────────────────────────── */
+.wearable-source {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--ink-faint);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.wearable-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wearable-metric {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wm-icon { font-size: 18px; flex-shrink: 0; width: 24px; text-align: center; }
+
+.wearable-metric > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+}
+
+.wm-value {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--forest);
+  line-height: 1;
+}
+
+.wm-label {
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.wm-bar-track {
+  height: 3px;
+  background: var(--mist);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 3px;
+  flex: none;
+  width: 100%;
+}
+
+.wm-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--sage), var(--forest-light));
+  border-radius: 2px;
+  transition: width 0.8s var(--ease-out);
+}
+
+.wearable-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--mist);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--ink-light);
+  line-height: 1.4;
+  text-align: left;
+  margin-top: 4px;
+  transition: background 0.2s;
+}
+.wearable-suggestion:hover { background: var(--sage-light); }
+.ws-arrow { color: var(--forest-light); font-weight: 500; margin-left: auto; white-space: nowrap; }
+
+/* ── Habit calendar ──────────────────────────────────────────────────────── */
+.habit-calendar-card { overflow: hidden; }
+
+.habit-calendar {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  min-height: 100px;
+}
+
+.cal-col {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cal-col.today .cal-day-label {
+  background: var(--forest);
+  color: var(--parchment);
+  border-radius: 4px;
+}
+
+.cal-day-label {
+  font-size: 10px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-faint);
+  text-align: center;
+  padding: 2px 0;
+  margin-bottom: 2px;
+}
+
+.cal-events { display: flex; flex-direction: column; gap: 2px; }
+
+.cal-event {
+  background: var(--mist);
+  border-radius: 4px;
+  padding: 3px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  cursor: default;
+  transition: background 0.15s;
+}
+.cal-event:hover { background: var(--sage-light); }
+
+.cal-event-time {
+  font-size: 9px;
+  color: var(--ink-faint);
+  line-height: 1;
+}
+
+.cal-event-name {
+  font-size: 9px;
+  color: var(--forest);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.cal-event-more {
+  font-size: 9px;
+  color: var(--ink-faint);
+  text-align: center;
+  padding: 2px 0;
+}
+
+.cal-empty-day {
+  height: 6px;
+  background: var(--mist);
+  border-radius: 3px;
+  opacity: 0.4;
+}
+
+@media (max-width: 700px) {
+  .dash-bottom-row-3 { grid-template-columns: 1fr; }
+  .habit-calendar { grid-template-columns: repeat(7, 1fr); font-size: 9px; }
+}

@@ -32,6 +32,7 @@ const patch = (path, body) => request('PATCH', path, body);
 export const api = {
   chat: {
     send:       (message, history)  => post('/chat', { message, history }),
+    sendJournal: (message, history) => post('/chat/journal', { message, history }),
     endSession: (history)           => post('/chat', { message: '', history, endSession: true }),
   },
 

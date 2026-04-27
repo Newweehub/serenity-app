@@ -1,0 +1,76 @@
+.add-habit-modal {
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ahm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.ahm-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.ahm-optional {
+  font-weight: 400;
+  text-transform: none;
+  font-size: 11px;
+  color: var(--ink-faint);
+}
+
+.ahm-input {
+  padding: 9px 12px;
+  border: 1px solid var(--sage-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--ink);
+  background: white;
+  width: 100%;
+  transition: border-color 0.2s;
+}
+.ahm-input:focus { outline: none; border-color: var(--forest-light); }
+.ahm-input::placeholder { color: var(--ink-faint); }
+.ahm-input[type="time"] { cursor: pointer; }
+
+.ahm-select {
+  padding: 9px 12px;
+  border: 1px solid var(--sage-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--ink);
+  background: white;
+  cursor: pointer;
+  width: 100%;
+}
+
+.ahm-schedule-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ahm-preview {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--forest-light);
+  background: var(--mist);
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+  line-height: 1.4;
+}
+
+.dup-warning {
+  font-size: 12px;
+  color: var(--blush);
+  background: #fde8e8;
+  border-radius: var(--radius-sm);
+  padding: 7px 12px;
+}

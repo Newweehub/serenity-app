@@ -431,3 +431,244 @@
   transition: border-color 0.2s;
 }
 .btn-time-cancel:hover { border-color: var(--sage); }
+
+/* ── Add-habit modal ─────────────────────────────────────────────────────── */
+.add-habit-modal {
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.modal-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.optional {
+  font-weight: 400;
+  text-transform: none;
+  color: var(--ink-faint);
+  font-size: 11px;
+}
+
+.modal-input {
+  padding: 9px 12px;
+  border: 1px solid var(--sage-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--ink);
+  background: white;
+  transition: border-color 0.2s;
+}
+.modal-input:focus { outline: none; border-color: var(--forest-light); }
+.modal-input::placeholder { color: var(--ink-faint); }
+
+.modal-select {
+  padding: 9px 12px;
+  border: 1px solid var(--sage-light);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--ink);
+  background: white;
+  cursor: pointer;
+  width: 100%;
+}
+
+.modal-schedule-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.schedule-preview {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--forest-light);
+  background: var(--mist);
+  border-radius: var(--radius-sm);
+  padding: 6px 10px;
+}
+
+/* ── Manual open button ──────────────────────────────────────────────────── */
+.btn-manual-open {
+  padding: 9px 20px;
+  border: 1.5px dashed var(--sage);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--forest-light);
+  background: white;
+  width: 100%;
+  transition: background 0.2s, border-color 0.2s;
+}
+.btn-manual-open:hover { background: var(--mist); border-color: var(--forest-light); }
+
+/* ── Done button glow effect ─────────────────────────────────────────────── */
+.btn-done-glow {
+  position: relative;
+  overflow: hidden;
+  background: var(--forest);
+  color: var(--parchment);
+  font-weight: 600;
+  font-size: 14px;
+  border-radius: 999px;          /* full pill */
+  padding: 8px 20px;
+  letter-spacing: 0.03em;
+  box-shadow: 0 2px 8px rgba(26,46,31,0.25);
+  transition: background 0.2s, box-shadow 0.25s, transform 0.15s;
+}
+
+.btn-done-glow:hover {
+  background: var(--forest-mid);
+  box-shadow: 0 0 0 5px rgba(74, 122, 82, 0.22), 0 2px 8px rgba(26,46,31,0.2);
+  transform: scale(1.04);
+}
+
+.btn-done-glow:active {
+  transform: scale(0.95);
+  box-shadow: 0 1px 4px rgba(26,46,31,0.2);
+}
+
+/* Ripple on click */
+.btn-done-glow::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.25);
+  opacity: 0;
+  transition: opacity 0.35s;
+}
+.btn-done-glow:active::after { opacity: 1; }
+
+/* ── Completed today badge (replaces plain text) ─────────────────────────── */
+.habit-checked-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  background: linear-gradient(135deg, #e1f5ee, #d4edd9);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--forest);
+  border: 1.5px solid var(--sage-light);
+  flex: 1;
+}
+
+.check-circle {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--forest-light);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+/* ── Habit card (inline cards in HabitBoard, not the old HabitCard component) */
+.habit-card {
+  background: white;
+  border: 2px solid var(--sage-light);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: box-shadow 0.2s, border-color 0.2s, transform 0.15s;
+  box-shadow: 0 2px 8px rgba(26,46,31,0.06);
+}
+.habit-card:hover {
+  box-shadow: 0 6px 24px rgba(26,46,31,0.11);
+  border-color: var(--sage);
+  transform: translateY(-1px);
+}
+.habit-card.checked {
+  border-color: var(--forest-light);
+  background: linear-gradient(160deg, #f4faf4 0%, #ffffff 100%);
+  box-shadow: 0 2px 12px rgba(74,122,82,0.12);
+}
+
+.habit-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+.habit-icon { font-size: 22px; flex-shrink: 0; }
+.habit-info { flex: 1; }
+.habit-name {
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--forest);
+  line-height: 1.2;
+}
+.habit-goal { font-size: 12px; color: var(--ink-faint); margin-top: 2px; }
+
+.habit-streak-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--mist);
+  border-radius: var(--radius-md);
+  padding: 6px 10px;
+  flex-shrink: 0;
+}
+.streak-count {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--forest);
+  line-height: 1;
+}
+.streak-label { font-size: 10px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: 0.06em; }
+
+.streak-bar-track {
+  height: 3px;
+  background: var(--mist);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.streak-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--sage), var(--forest-light));
+  border-radius: 2px;
+  transition: width 0.8s var(--ease-out);
+}
+
+/* ── Missed-habit link ────────────────────────────────────────────────────── */
+.btn-missed-today {
+  font-size: 11px;
+  color: var(--ink-faint);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  padding: 0;
+  background: none;
+  align-self: flex-start;
+  transition: color 0.2s;
+}
+.btn-missed-today:hover { color: var(--blush); }
+
+/* ── Scroll-to highlight from notification ───────────────────────────────── */
+@keyframes habitHighlight {
+  0%   { box-shadow: 0 0 0 0 rgba(74,122,82,0); border-color: var(--sage-light); }
+  25%  { box-shadow: 0 0 0 8px rgba(74,122,82,0.3); border-color: var(--forest-light); }
+  75%  { box-shadow: 0 0 0 8px rgba(74,122,82,0.3); border-color: var(--forest-light); }
+  100% { box-shadow: 0 2px 8px rgba(26,46,31,0.06); border-color: var(--sage-light); }
+}
+
+.habit-card-highlight {
+  animation: habitHighlight 2s ease-out forwards;
+}

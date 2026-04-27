@@ -4,6 +4,8 @@ import { useUser } from '../hooks/useUser.js';
 import { useApi } from '../hooks/useApi.js';
 import { api } from '../lib/api.js';
 import './Dashboard.css';
+import { getMockWearableData, getWearableExerciseSuggestion } from '../lib/wearable.js';
+
 
 const MOODS = [
   { emoji: '😔', label: 'Low',   score: 2 },
@@ -17,6 +19,49 @@ function greeting(name) {
   const h = new Date().getHours();
   const prefix = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   return `${prefix}, ${name || 'friend'}.`;
+}
+
+const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function HabitCalendar({ habits, loading }) {
+  if (loading) return <div className="skeleton" style={{height:80}} />;
+  if (!habits.length) return <p className="dash-empty">No habits scheduled yet.</p>;
+
+  // Group habits by dayOfWeek (null = every day)
+  const byDay = Array.from({length: 7}, () => []);
+  habits.forEach(h => {
+    if (h.schedule?.targetTime) {
+      if (h.schedule.dayOfWeek === null || h.schedule.dayOfWeek === undefined) {
+        byDay.forEach(d => d.push(h));
+      } else {
+        byDay[h.schedule.dayOfWeek]?.push(h);
+      }
+    }
+  });
+
+  const today = new Date().getDay();
+
+  return (
+    <div className="habit-calendar">
+      {DAY_LABELS.map((label, i) => (
+        <div key={i} className={`cal-col ${i === today ? 'today' : ''}`}>
+          <div className="cal-day-label">{label}</div>
+          <div className="cal-events">
+            {byDay[i].slice(0,3).map(h => (
+              <div key={h.id} className="cal-event" title={`${h.name} at ${h.schedule.targetTime}`}>
+                <span className="cal-event-time">{h.schedule.targetTime}</span>
+                <span className="cal-event-name">{h.name}</span>
+              </div>
+            ))}
+            {byDay[i].length > 3 && (
+              <div className="cal-event-more">+{byDay[i].length - 3} more</div>
+            )}
+            {byDay[i].length === 0 && <div className="cal-empty-day" />}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -36,6 +81,8 @@ export default function Dashboard() {
   const streaks     = user?.streaks      ?? {};
   const memory      = user?.memoryContext ?? {};
   const report      = insightData?.report;
+  const wearable    = getMockWearableData();
+  const wearableSuggestion = getWearableExerciseSuggestion(wearable);
 
   async function handleMoodSelect(mood) {
     if (moodSaved) return;
@@ -174,6 +221,60 @@ export default function Dashboard() {
           <span className="snippet-cta">See full insight →</span>
         </section>
 
+      </div>
+
+      {/* ── Wearable data card ── */}
+      <div className="dash-bottom-row-3 fade-up">
+        <section className="dash-card wearable-card">
+          <div className="card-header-row">
+            <h3 className="card-label">Body data today <span className="wearable-source">({wearable.source})</span></h3>
+          </div>
+          <div className="wearable-metrics">
+            <div className="wearable-metric">
+              <span className="wm-icon">👟</span>
+              <div>
+                <span className="wm-value">{wearable.today.steps.toLocaleString()}</span>
+                <span className="wm-label">/ {wearable.today.stepGoal.toLocaleString()} steps</span>
+              </div>
+              <div className="wm-bar-track">
+                <div className="wm-bar-fill" style={{width: `${Math.min(100, wearable.today.steps / wearable.today.stepGoal * 100)}%`}} />
+              </div>
+            </div>
+            <div className="wearable-metric">
+              <span className="wm-icon">❤️</span>
+              <div>
+                <span className="wm-value">{wearable.today.heartRate}</span>
+                <span className="wm-label">bpm · {wearable.today.hrZone}</span>
+              </div>
+            </div>
+            <div className="wearable-metric">
+              <span className="wm-icon">😴</span>
+              <div>
+                <span className="wm-value">{wearable.today.sleep.totalHours}h</span>
+                <span className="wm-label">sleep · {wearable.today.sleep.quality}</span>
+              </div>
+            </div>
+            <div className="wearable-metric">
+              <span className="wm-icon">🧘</span>
+              <div>
+                <span className="wm-value">{wearable.today.stressLevel}</span>
+                <span className="wm-label">stress level</span>
+              </div>
+            </div>
+          </div>
+          {wearableSuggestion && (
+            <button className="wearable-suggestion"
+              onClick={() => navigate('/mindfulness', { state: { exerciseId: wearableSuggestion.exerciseId } })}>
+              🌿 {wearableSuggestion.reason} <span className="ws-arrow">Try it →</span>
+            </button>
+          )}
+        </section>
+
+        {/* ── Habit calendar (weekly view) ── */}
+        <section className="dash-card habit-calendar-card">
+          <h3 className="card-label">This week's schedule</h3>
+          <HabitCalendar habits={habits} loading={habitsLoading} />
+        </section>
       </div>
 
       {/* ── Quick nav ── */}

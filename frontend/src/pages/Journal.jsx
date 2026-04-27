@@ -4,6 +4,7 @@ import { useApi } from '../hooks/useApi.js';
 import { api } from '../lib/api.js';
 import { findExercise } from '../lib/exercises.js';
 import './Journal.css';
+import MicButton from '../components/ui/MicButton.jsx';
 import '../components/ui/ConfirmModal.css';
 
 function EntryModal({ entry, onClose }) {
@@ -147,7 +148,7 @@ export default function Journal() {
     setFollowInput('');
     setFollowLoading(true);
     try {
-      const { reply } = await api.chat.send(followInput, followUps);
+      const { reply } = await api.chat.sendJournal(followInput, followUps);
       setFollowUps([...history, { role: 'assistant', content: reply }]);
     } catch {
       setFollowUps([...history, { role: 'assistant', content: 'I\'m here. Feel free to keep writing.' }]);
@@ -194,14 +195,24 @@ export default function Journal() {
                   : <p className="journal-prompt-text">✦ {prompt}</p>}
               </div>
 
-              {/* Editor */}
-              <textarea
-                className="journal-editor"
-                value={text}
-                onChange={e => setText(e.target.value)}
-                placeholder="Begin writing here… there are no rules."
-                rows={10}
-              />
+              {/* Editor + voice input */}
+              <div className="journal-editor-wrap">
+                <textarea
+                  className="journal-editor"
+                  value={text}
+                  onChange={e => setText(e.target.value)}
+                  placeholder="Begin writing here… there are no rules. Or tap 🎙 to speak."
+                  rows={10}
+                />
+                <div className="journal-mic-row">
+                  <MicButton
+                    onResult={spoken => setText(prev => (prev ? prev + ' ' : '') + spoken.trim())}
+                    title="Speak your journal entry"
+                    lang="en-US"
+                  />
+                  <span className="journal-mic-hint">or speak your entry</span>
+                </div>
+              </div>
 
               <div className="journal-editor-footer">
                 <span className="word-count">

@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChat } from '../../hooks/useChat.js';
 import './ChatPanel.css';
+import MicButton from './MicButton.jsx';
 
 export default function ChatPanel({ initialMessage, placeholder = 'Talk to Serenity…' }) {
   const { messages, loading, error, send } = useChat();
@@ -76,6 +77,11 @@ export default function ChatPanel({ initialMessage, placeholder = 'Talk to Seren
       </div>
 
       <form className="chat-input-row" onSubmit={handleSubmit}>
+        <MicButton
+          onResult={spoken => setInput(prev => (prev ? prev + ' ' : '') + spoken.trim())}
+          size="sm"
+          title="Speak your message"
+        />
         <textarea
           ref={inputRef}
           className="chat-input"

@@ -49,10 +49,13 @@ JSON format:
   "name": "Short habit name",
   "category": "sleep|movement|mindfulness|nutrition|social|other",
   "goal": "What this habit achieves",
+  "suggestedDayOfWeek": null,
   "suggestedTime": "HH:MM",
-  "timeReason": "Why this time works well",
+  "scheduleReason": "Why this day/time works well (e.g. 'Every day at 8am builds a morning routine')",
   "confirmationMessage": "A warm conversational sentence asking if this feels right"
-}`,
+}
+
+dayOfWeek: 0=Sunday,1=Monday,2=Tuesday,3=Wednesday,4=Thursday,5=Friday,6=Saturday. Use null to mean every day.`,
       },
       {
         role: 'user',

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi.js';
 import { api } from '../lib/api.js';
 import './Insight.css';
+import AddHabitModal from '../components/ui/AddHabitModal.jsx';
 
 const PERIODS = ['week', 'month', 'year'];
 
@@ -16,6 +17,8 @@ export default function Insight() {
   const navigate = useNavigate();
   const [period, setPeriod] = useState('week');
   const [addedHabits, setAddedHabits] = useState({});
+  const [addModal,    setAddModal]    = useState(null);  // { suggestion } | null
+  const [dupError,    setDupError]    = useState('');
 
   const { data, loading, error, refetch } = useApi(
     () => api.insights.get(period),
@@ -25,18 +28,26 @@ export default function Insight() {
   const report = data?.report;
   const trend  = TREND_DISPLAY[report?.moodTrend] ?? TREND_DISPLAY.stable;
 
-  // Add a suggested habit from insight directly to the habit board
-  async function addSuggestionToBoard(suggestion) {
+  // Open modal with the suggestion pre-filled
+  function addSuggestionToBoard(suggestion) {
+    setDupError('');
+    setAddModal({ suggestion });
+  }
+
+  async function handleModalSave({ name, category, goal, dayOfWeek, time }) {
     try {
       await api.habits.create({
-        name: suggestion,
-        category: 'other',
-        goal: 'Suggested from Insight',
+        name,
+        category,
+        goal,
+        schedule: { dayOfWeek, targetTime: time },
         addedVia: 'ai_suggestion',
       });
-      setAddedHabits(prev => ({ ...prev, [suggestion]: true }));
+      setAddedHabits(prev => ({ ...prev, [addModal.suggestion]: true }));
+      setAddModal(null);
+      setDupError('');
     } catch {
-      alert('Could not add to Habit Board. Please try again.');
+      setDupError('Could not save. Please try again.');
     }
   }
 
@@ -173,6 +184,21 @@ export default function Insight() {
           </p>
 
         </div>
+      )}
+      {addModal && (
+        <AddHabitModal
+          defaultValues={{
+            name: addModal.suggestion,
+            category: 'other',
+            goal: 'Suggested from Insight',
+            dayOfWeek: null,
+            time: '08:00',
+          }}
+          dupError={dupError}
+          onSave={handleModalSave}
+          onCancel={() => { setAddModal(null); setDupError(''); }}
+          title="Add this to your Habit Board"
+        />
       )}
     </div>
   );

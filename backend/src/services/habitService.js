@@ -26,7 +26,8 @@ export async function createHabit(userId, { name, category, goal, schedule, adde
     category: category || 'other',
     status: 'active',
     schedule: {
-      frequency: 'daily',
+      // dayOfWeek: 0=Sunday,1=Monday,...,6=Saturday. null means every day.
+      dayOfWeek: schedule?.dayOfWeek ?? null,
       targetTime: schedule?.targetTime || null,
       reminderOffsetMinutes: schedule?.reminderOffsetMinutes ?? 30,
     },
@@ -75,6 +76,26 @@ export async function checkIn(habitId, userId, { completed, note = '' }) {
 
   habit.updatedAt = new Date().toISOString();
   const updated = await habitRepository.save(habit);
+
+  // Increment mindfulness streak on user profile if this is a mindfulness habit
+  if (completed && habit.category === 'mindfulness') {
+    try {
+      const user = await userRepository.findById(userId);
+      if (user) {
+        const lastDate = user.streaks?.lastMindfulnessDate;
+        const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+        const current = lastDate === yesterday || lastDate === today
+          ? (user.streaks.mindfulnessStreak || 0) + (lastDate === today ? 0 : 1)
+          : 1;
+        user.streaks = {
+          ...user.streaks,
+          mindfulnessStreak: current,
+          lastMindfulnessDate: today,
+        };
+        await userRepository.upsert(user);
+      }
+    } catch { /* non-critical */ }
+  }
 
   // Generate reframe if missed
   let reframe = null;
@@ -145,12 +166,12 @@ export async function recalculateAdherence(userId) {
 /**
  * Update a habit's schedule (reminder date and time).
  */
-export async function updateSchedule(habitId, userId, { targetDate, targetTime, reminderOffsetMinutes }) {
+export async function updateSchedule(habitId, userId, { dayOfWeek, targetTime, reminderOffsetMinutes }) {
   const habit = await habitRepository.findById(habitId, userId);
   if (!habit) throw Object.assign(new Error('Habit not found'), { status: 404 });
   habit.schedule = {
     ...habit.schedule,
-    ...(targetDate !== undefined && { targetDate }),
+    ...(dayOfWeek !== undefined && { dayOfWeek }),
     ...(targetTime !== undefined && { targetTime }),
     ...(reminderOffsetMinutes !== undefined && { reminderOffsetMinutes }),
   };

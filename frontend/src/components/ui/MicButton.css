@@ -1,0 +1,72 @@
+.mic-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+}
+
+.mic-btn {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s, box-shadow 0.2s, transform 0.15s;
+  border: 2px solid var(--sage-light);
+  background: white;
+  cursor: pointer;
+}
+
+.mic-btn-md {
+  width: 36px;
+  height: 36px;
+  font-size: 16px;
+}
+
+.mic-btn-sm {
+  width: 28px;
+  height: 28px;
+  font-size: 13px;
+}
+
+.mic-btn:hover {
+  border-color: var(--forest-light);
+  background: var(--mist);
+  transform: scale(1.05);
+}
+
+/* Recording state — pulse ring */
+.mic-btn.listening {
+  background: #fff0f0;
+  border-color: var(--blush);
+  box-shadow: 0 0 0 0 rgba(212,132,122,0.5);
+  animation: micPulse 1.4s ease-in-out infinite;
+}
+
+@keyframes micPulse {
+  0%   { box-shadow: 0 0 0 0   rgba(212,132,122,0.5); }
+  70%  { box-shadow: 0 0 0 8px rgba(212,132,122,0);   }
+  100% { box-shadow: 0 0 0 0   rgba(212,132,122,0);   }
+}
+
+/* Interim transcript pill */
+.mic-interim {
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-style: italic;
+  background: var(--parchment);
+  border-radius: 20px;
+  padding: 3px 10px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Error message */
+.mic-error {
+  font-size: 11px;
+  color: var(--blush);
+  max-width: 200px;
+  line-height: 1.4;
+}

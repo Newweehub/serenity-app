@@ -1,44 +1,32 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useApi } from '../hooks/useApi.js';
 import { api } from '../lib/api.js';
 import ConfirmModal from '../components/ui/ConfirmModal.jsx';
-import { EXERCISES } from '../lib/exercises.js';
+import AddHabitModal, { dayLabel, formatTime12, DAYS } from '../components/ui/AddHabitModal.jsx';
+import { EXERCISES, findExercise } from '../lib/exercises.js';
 import './HabitBoard.css';
 
+// ── Constants ─────────────────────────────────────────────────────────────────
 const CATEGORY_ICONS = {
-  sleep:       '🌙',
-  movement:    '🏃',
-  mindfulness: '🧘',
-  nutrition:   '🌱',
-  social:      '🤝',
-  other:       '✦',
+  sleep: '🌙', movement: '🏃', mindfulness: '🧘',
+  nutrition: '🌱', social: '🤝', other: '✦',
 };
 const CATEGORIES = ['sleep', 'movement', 'mindfulness', 'nutrition', 'social', 'other'];
-
-// Fallback: pick a sensible exercise ID for each category
 const CATEGORY_EXERCISE_FALLBACK = {
-  mindfulness: 'body_scan_5min',
-  sleep:       'breathing_478',
-  movement:    'progressive_relax',
-  social:      'loving_kindness',
-  nutrition:   'gratitude_3',
-  other:       'mindful_breath',
+  mindfulness: 'body_scan_5min', sleep: 'breathing_478',
+  movement: 'progressive_relax', social: 'loving_kindness',
+  nutrition: 'gratitude_3',      other: 'mindful_breath',
 };
 
-function Toast({ message, onClose }) {
-  useEffect(() => {
-    const t = setTimeout(onClose, 4000);
-    return () => clearTimeout(t);
-  }, [onClose]);
-  return (
-    <div className="habit-toast fade-in">
-      <span>🔔 {message}</span>
-      <button onClick={onClose}>✕</button>
-    </div>
-  );
+function scheduleLabel(schedule) {
+  if (!schedule?.targetTime) return null;
+  const day  = dayLabel(schedule.dayOfWeek);
+  const time = formatTime12(schedule.targetTime);
+  return `${day} at ${time}`;
 }
 
+// ── Main component ────────────────────────────────────────────────────────────
 export default function HabitBoard() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -46,32 +34,72 @@ export default function HabitBoard() {
   const { data, loading, refetch } = useApi(() => api.habits.list(), []);
   const habits = data?.habits ?? [];
 
-  const [addMode,      setAddMode]      = useState(false);
-  const [suggestInput, setSuggestInput] = useState('');
-  const [suggestion,   setSuggestion]   = useState(null);
-  const [suggesting,   setSuggesting]   = useState(false);
-  const [saving,       setSaving]       = useState(false);
-  const [manualName,   setManualName]   = useState('');
-  const [manualCat,    setManualCat]    = useState('other');
-  const [manualTime,   setManualTime]   = useState('08:00');
-  const [manualDate,   setManualDate]   = useState('');
-  const [dupWarning,   setDupWarning]   = useState('');
+  // Add flow
+  const [suggestInput,  setSuggestInput]  = useState('');
+  const [suggesting,    setSuggesting]    = useState(false);
+  const [showModal,     setShowModal]     = useState(false);
+  const [modalDefaults, setModalDefaults] = useState({});
+  const [dupError,      setDupError]      = useState('');
+  const [addMode,       setAddMode]       = useState(false);
 
+  // Confirm / delete modals
   const [confirmModal, setConfirmModal] = useState(null);
   const [deleteModal,  setDeleteModal]  = useState(null);
 
-  // Per-habit schedule editing state
-  const [editingSchedule, setEditingSchedule] = useState({});  // { [id]: true }
-  const [scheduleValues,  setScheduleValues]  = useState({});  // { [id]: { date, time } }
-  const [savingSchedule,  setSavingSchedule]  = useState({});  // { [id]: true }
+  // Schedule editing per habit
+  const [editingSchedule, setEditingSchedule] = useState({});
+  const [scheduleValues,  setScheduleValues]  = useState({});
+  const [savingSchedule,  setSavingSchedule]  = useState({});
 
-  // Track which habits are "done" this session to disable the button immediately
+  // Done today (local optimistic)
   const [doneTodayLocal, setDoneTodayLocal] = useState({});
+  const [altSuggestion,  setAltSuggestion]  = useState({});
 
-  const [toasts,       setToasts]       = useState([]);
-  const [altSuggestion, setAltSuggestion] = useState({});
+  // Refs map for scroll-to-habit from notification click
+  const habitRefs = useRef({});
 
   const today = new Date().toISOString().slice(0, 10);
+
+  // ── Auto-miss detection: write missed check-ins for yesterday ──
+  // Runs once when habits load. If a habit was scheduled yesterday and has no check-in, auto-record a miss.
+  useEffect(() => {
+    if (!habits.length) return;
+    const yesterday = (() => {
+      const d = new Date(Date.now() - 86_400_000);
+      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    })();
+    const yesterdayDay = new Date(Date.now() - 86_400_000).getDay();
+
+    habits.forEach(h => {
+      const s = h.schedule;
+      if (!s?.targetTime) return;
+      const dayMatch = s.dayOfWeek === null || s.dayOfWeek === undefined || Number(s.dayOfWeek) === yesterdayDay;
+      if (!dayMatch) return;
+      const alreadyHasEntry = (h.checkIns || []).some(c => c.date === yesterday);
+      if (alreadyHasEntry) return;
+      // Silently record a miss for yesterday
+      api.habits.checkIn(h.id, { completed: false, note: 'Auto-recorded miss' })
+        .then(() => refetch())
+        .catch(() => {});
+    });
+  }, [habits.length]);
+
+  // ── Scroll to specific habit when arriving from notification ──
+  useEffect(() => {
+    const { scrollToHabitId } = location.state ?? {};
+    if (!scrollToHabitId || !habits.length) return;
+    // Clear state so back-navigation doesn't re-scroll
+    navigate(location.pathname, { replace: true, state: {} });
+    // Wait a tick for the grid to render
+    setTimeout(() => {
+      const el = habitRefs.current[scrollToHabitId];
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('habit-card-highlight');
+        setTimeout(() => el.classList.remove('habit-card-highlight'), 2000);
+      }
+    }, 100);
+  }, [habits, location.state]);
 
   // ── Auto-mark done when returning from Mindfulness ──
   useEffect(() => {
@@ -81,33 +109,11 @@ export default function HabitBoard() {
     api.habits.checkIn(completedHabitId, { completed: true, note: 'Completed via Mindfulness page' })
       .then(() => {
         setDoneTodayLocal(prev => ({ ...prev, [completedHabitId]: true }));
-        addToast('Exercise marked as done automatically! 🎉');
         refetch();
-      })
-      .catch(() => {});
+      }).catch(() => {});
   }, [location.state]);
 
-  // ── In-app reminder notifications ──
-  useEffect(() => {
-    function checkReminders() {
-      const now = new Date();
-      const currentTime = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-      habits.forEach(h => {
-        const target = h.schedule?.targetTime;
-        if (!target) return;
-        const checkedToday = h.checkIns?.some(c => c.date === today && c.completed);
-        if (!checkedToday && target === currentTime) addToast(`Time for "${h.name}"! 🌿`);
-      });
-    }
-    const interval = setInterval(checkReminders, 60_000);
-    return () => clearInterval(interval);
-  }, [habits, today]);
-
-  function addToast(message) {
-    const id = Date.now();
-    setToasts(prev => [...prev, { id, message }]);
-  }
-  function removeToast(id) { setToasts(prev => prev.filter(t => t.id !== id)); }
+  // Reminders handled globally in App.jsx
 
   function getMissedDays(habit) {
     const recent = habit.checkIns?.slice(0, 7) ?? [];
@@ -116,48 +122,120 @@ export default function HabitBoard() {
     return count;
   }
 
-  // ── Navigate to correct exercise — uses stored exerciseId with category fallback ──
+  // ── Duplicate check: name OR (exerciseId + dayOfWeek + time) ──
+  function getDuplicateError(fields) {
+    const { name, dayOfWeek, time, exerciseId } = fields;
+    const normalName = (name || '').toLowerCase().trim();
+    for (const h of habits) {
+      const hName     = h.name.toLowerCase().trim();
+      const hDay      = h.schedule?.dayOfWeek ?? null;
+      const hTime     = h.schedule?.targetTime ?? null;
+      const sameDay   = (hDay === null || dayOfWeek === null) ? true : hDay === dayOfWeek;
+      const sameTime  = hTime === time;
+
+      // Block only if name AND (same day AND same time) — allows same name on different schedule
+      if (hName === normalName && sameDay && sameTime) {
+        return '"' + h.name + '" is already scheduled for ' + (dayLabel(dayOfWeek)) + ' at ' + formatTime12(time) + '.';
+      }
+      // Block same exercise on same day+time (regardless of name)
+      if (
+        exerciseId &&
+        h.aiMeta?.exerciseId === exerciseId &&
+        sameDay && sameTime
+      ) {
+        return 'This exercise is already scheduled for ' + dayLabel(dayOfWeek) + ' at ' + formatTime12(time) + '.';
+      }
+    }
+    return '';
+  }
+
+  // ── Navigate to exercise on Mindfulness page ──
   function goToExercise(habit) {
     const exerciseId =
       habit.aiMeta?.exerciseId ??
       CATEGORY_EXERCISE_FALLBACK[habit.category] ??
       'mindful_breath';
-
-    // Validate the exerciseId actually exists in our library
     const validIds = EXERCISES.map(e => e.id);
     const finalId  = validIds.includes(exerciseId) ? exerciseId : CATEGORY_EXERCISE_FALLBACK[habit.category] ?? 'mindful_breath';
-
     navigate('/mindfulness', { state: { exerciseId: finalId, fromHabitId: habit.id } });
   }
 
-  function isDuplicate(name) {
-    return habits.some(h => h.name.toLowerCase().trim() === name.toLowerCase().trim());
+  // ── AI suggestion → open modal with defaults ──
+  async function handleAISuggest(e) {
+    e.preventDefault();
+    if (!suggestInput.trim()) return;
+    setSuggesting(true);
+    setDupError('');
+    try {
+      const { suggestion } = await api.habits.suggest(suggestInput);
+      if (!suggestion) throw new Error('null');
+      setModalDefaults({
+        name:      suggestion.name,
+        category:  suggestion.category,
+        goal:      suggestion.goal,
+        dayOfWeek: suggestion.suggestedDayOfWeek ?? null,
+        time:      suggestion.suggestedTime ?? '08:00',
+        exerciseId: null,
+      });
+      setShowModal(true);
+    } catch {
+      addToast('Could not generate a suggestion — try rephrasing your goal.');
+    } finally {
+      setSuggesting(false);
+    }
   }
 
-  // ── Save schedule (date + time) ──
+  // ── Manual add → open modal with empty defaults ──
+  function openManualModal() {
+    setModalDefaults({ name: '', category: 'other', goal: '', dayOfWeek: null, time: '08:00', exerciseId: null });
+    setDupError('');
+    setShowModal(true);
+  }
+
+  // ── Save from modal ──
+  async function handleModalSave({ name, category, goal, dayOfWeek, time }) {
+    const exerciseId = modalDefaults.exerciseId ?? null;
+    const err = getDuplicateError({ name, dayOfWeek, time, exerciseId });
+    if (err) { setDupError(err); return; }
+    try {
+      await api.habits.create({
+        name,
+        category,
+        goal,
+        schedule: { dayOfWeek, targetTime: time },
+        addedVia: modalDefaults.exerciseId ? 'ai_suggestion' : 'manual',
+        aiMeta: { exerciseId },
+      });
+      setShowModal(false);
+      setSuggestInput('');
+      setAddMode(false);
+      setDupError('');
+      refetch();
+    } catch {
+      addToast('Could not save habit. Please try again.');
+    }
+  }
+
+  // ── Save updated schedule per habit ──
   async function saveSchedule(habitId) {
     const vals = scheduleValues[habitId] ?? {};
     setSavingSchedule(prev => ({ ...prev, [habitId]: true }));
     try {
       await api.habits.updateSchedule(habitId, {
-        targetDate: vals.date || undefined,
-        targetTime: vals.time || undefined,
+        dayOfWeek: vals.dayOfWeek,
+        targetTime: vals.time,
       });
       setEditingSchedule(prev => ({ ...prev, [habitId]: false }));
-      addToast('Reminder saved — you\'ll be notified at this time 🔔');
       refetch();
     } catch {
-      addToast('Could not save reminder. Please try again.');
     } finally {
       setSavingSchedule(prev => ({ ...prev, [habitId]: false }));
     }
   }
 
-  // ── Confirm Done ──
   async function handleConfirmCheckIn() {
     const { habitId } = confirmModal;
     setConfirmModal(null);
-    // Immediately disable button in UI
     setDoneTodayLocal(prev => ({ ...prev, [habitId]: true }));
     try {
       await api.habits.checkIn(habitId, { completed: true });
@@ -170,107 +248,59 @@ export default function HabitBoard() {
       }
       refetch();
     } catch {
-      // Revert on failure
       setDoneTodayLocal(prev => { const n = {...prev}; delete n[habitId]; return n; });
     }
+  }
+
+  // Trigger reframing when user admits they missed a habit
+  async function handleMissedHabit(habit) {
+    try {
+      const result = await api.habits.checkIn(habit.id, { completed: false, note: 'Missed today' });
+      if (result.reframe) {
+        setAltSuggestion(prev => ({ ...prev, [habit.id]: result.reframe }));
+      }
+      // If 3+ missed, suggest alternative
+      const missedCount = getMissedDays({ ...habit, checkIns: [{ date: new Date().toISOString().slice(0,10), completed: false }, ...(habit.checkIns || [])] });
+      if (missedCount >= 3) {
+        api.habits.suggest('I keep missing "' + habit.name + '". Suggest a gentler alternative.')
+          .then(r => {
+            if (r?.suggestion?.confirmationMessage) {
+              setAltSuggestion(prev => ({ ...prev, [habit.id]: r.suggestion.confirmationMessage }));
+            }
+          }).catch(() => {});
+      }
+      refetch();
+    } catch (err) { console.error(err); }
   }
 
   async function handleDelete() {
     const { habitId } = deleteModal;
     setDeleteModal(null);
-    try {
-      await api.habits.updateStatus(habitId, 'archived');
-      refetch();
-    } catch (err) { console.error(err); }
+    try { await api.habits.updateStatus(habitId, 'archived'); refetch(); }
+    catch (err) { console.error(err); }
   }
 
-  async function handleAISuggest(e) {
-    e.preventDefault();
-    if (!suggestInput.trim()) return;
-    setSuggesting(true);
-    setSuggestion(null);
-    setDupWarning('');
-    try {
-      const { suggestion: s } = await api.habits.suggest(suggestInput);
-      if (!s) throw new Error('null suggestion');
-      setSuggestion(s);
-      if (isDuplicate(s.name)) setDupWarning(`"${s.name}" is already on your board.`);
-    } catch (err) {
-      console.error('[suggest]', err);
-      addToast('Could not generate a suggestion — please try rephrasing your goal.');
-    } finally {
-      setSuggesting(false);
-    }
-  }
-
-  async function handleConfirmSuggestion() {
-    if (!suggestion) return;
-    if (isDuplicate(suggestion.name)) {
-      setDupWarning(`"${suggestion.name}" is already on your Habit Board.`);
-      return;
-    }
-    setSaving(true);
-    try {
-      await api.habits.create({
-        name: suggestion.name,
-        category: suggestion.category,
-        goal: suggestion.goal,
-        schedule: { targetTime: suggestion.suggestedTime },
-        addedVia: 'ai_suggestion',
-        originalUserMessage: suggestInput,
-      });
-      setSuggestion(null); setSuggestInput(''); setAddMode(false); setDupWarning('');
-      refetch();
-    } catch { addToast('Could not save. Please try again.'); }
-    finally { setSaving(false); }
-  }
-
-  async function handleManualAdd(e) {
-    e.preventDefault();
-    if (!manualName.trim()) return;
-    if (isDuplicate(manualName)) {
-      setDupWarning(`"${manualName}" is already on your Habit Board.`);
-      return;
-    }
-    setSaving(true);
-    try {
-      await api.habits.create({
-        name: manualName,
-        category: manualCat,
-        schedule: { targetDate: manualDate || undefined, targetTime: manualTime },
-        addedVia: 'manual',
-      });
-      setManualName(''); setManualCat('other'); setManualTime('08:00'); setManualDate('');
-      setAddMode(false); setDupWarning('');
-      refetch();
-    } finally { setSaving(false); }
-  }
+  // 'Go to exercise' only shown when habit has a specific exerciseId linked from the Mindfulness library
 
   return (
     <div className="habit-board">
-
-      <div className="toast-container">
-        {toasts.map(t => <Toast key={t.id} message={t.message} onClose={() => removeToast(t.id)} />)}
-      </div>
 
       {/* ── Header ── */}
       <div className="board-header fade-up">
         <p className="board-subtext">
           {habits.length > 0
             ? `${habits.length} active habit${habits.length !== 1 ? 's' : ''}`
-            : 'No habits yet — add one below.'}
+            : 'No habits yet.'}
         </p>
         <button className="btn-add-habit"
-          onClick={() => { setAddMode(v => !v); setSuggestion(null); setDupWarning(''); }}>
+          onClick={() => { setAddMode(v => !v); setDupError(''); }}>
           {addMode ? '✕ Cancel' : '+ Add habit'}
         </button>
       </div>
 
-      {/* ── Add panel ── */}
+      {/* ── Add panel (AI suggest + manual button) ── */}
       {addMode && (
         <div className="add-habit-panel fade-up">
-          {dupWarning && <p className="dup-warning">⚠️ {dupWarning}</p>}
-
           <div className="add-section">
             <h4 className="add-section-title">✦ Ask Serenity to suggest one</h4>
             <form className="suggest-form" onSubmit={handleAISuggest}>
@@ -281,58 +311,11 @@ export default function HabitBoard() {
                 {suggesting ? '…' : 'Suggest'}
               </button>
             </form>
-
-            {suggestion && (
-              <div className="suggestion-card fade-in">
-                {dupWarning && <p className="dup-inline">⚠️ {dupWarning}</p>}
-                <p className="suggestion-confirm-msg">{suggestion.confirmationMessage}</p>
-                <div className="suggestion-details">
-                  <span className="sug-field"><strong>Habit:</strong> {suggestion.name}</span>
-                  <span className="sug-field"><strong>Suggested time:</strong> {suggestion.suggestedTime}</span>
-                  <span className="sug-field"><strong>Why:</strong> {suggestion.timeReason}</span>
-                </div>
-                <div className="suggestion-actions">
-                  <button className="btn-confirm-sug" onClick={handleConfirmSuggestion} disabled={saving}>
-                    {saving ? 'Saving…' : 'Yes, add this habit'}
-                  </button>
-                  <button className="btn-decline-sug" onClick={() => setSuggestion(null)}>Not quite</button>
-                </div>
-              </div>
-            )}
           </div>
-
-          <div className="add-divider"><span>or add manually</span></div>
-
-          <div className="add-section">
-            <form className="manual-form" onSubmit={handleManualAdd}>
-              <input className="manual-input" value={manualName}
-                onChange={e => { setManualName(e.target.value); setDupWarning(''); }}
-                placeholder="Habit name e.g. Drink 8 glasses of water" />
-              <select className="manual-select" value={manualCat}
-                onChange={e => setManualCat(e.target.value)}>
-                {CATEGORIES.map(c => (
-                  <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-                ))}
-              </select>
-              <div className="schedule-row">
-                <div className="schedule-field">
-                  <label className="schedule-label">📅 Start date</label>
-                  <input type="date" className="date-input" value={manualDate}
-                    onChange={e => setManualDate(e.target.value)}
-                    min={new Date().toISOString().slice(0,10)} />
-                </div>
-                <div className="schedule-field">
-                  <label className="schedule-label">🕐 Reminder time</label>
-                  <input type="time" className="time-input" value={manualTime}
-                    onChange={e => setManualTime(e.target.value)} />
-                </div>
-              </div>
-              <button type="submit" className="btn-manual-add"
-                disabled={saving || !manualName.trim()}>
-                {saving ? 'Saving…' : 'Add'}
-              </button>
-            </form>
-          </div>
+          <div className="add-divider"><span>or</span></div>
+          <button className="btn-manual-open" onClick={openManualModal}>
+            + Add manually
+          </button>
         </div>
       )}
 
@@ -349,22 +332,24 @@ export default function HabitBoard() {
       ) : (
         <div className="habit-grid stagger">
           {habits.map(h => {
-            const checkedInDB   = h.checkIns?.some(c => c.date === today && c.completed);
-            const checkedToday  = checkedInDB || doneTodayLocal[h.id];
-            const missedDays    = getMissedDays(h);
-            const isMindful     = ['mindfulness','sleep','movement','social','nutrition','other'].includes(h.category);
-            const alt           = altSuggestion[h.id];
-            const isEditSched   = editingSchedule[h.id];
-            const schedVals     = scheduleValues[h.id] ?? {};
-            const displayDate   = h.schedule?.targetDate ?? '';
-            const displayTime   = h.schedule?.targetTime ?? '';
+            const checkedInDB  = h.checkIns?.some(c => c.date === today && c.completed);
+            const checkedToday = checkedInDB || doneTodayLocal[h.id];
+            const missedDays   = getMissedDays(h);
+            const alt          = altSuggestion[h.id];
+            const isEditSched  = editingSchedule[h.id];
+            const schedVals    = scheduleValues[h.id] ?? {};
             const isSavingSched = savingSchedule[h.id];
+            const sched        = scheduleLabel(h.schedule);
 
             return (
-              <div key={h.id} className={`habit-card fade-up ${checkedToday ? 'checked' : ''}`}>
+              <div key={h.id} ref={el => { habitRefs.current[h.id] = el; }} className={`habit-card fade-up ${checkedToday ? 'checked' : ''}`}>
 
                 <div className="habit-card-header">
-                  <span className="habit-icon">{CATEGORY_ICONS[h.category] ?? '✦'}</span>
+                  <span className="habit-icon">
+                    {h.aiMeta?.exerciseId
+                      ? (findExercise(h.aiMeta.exerciseId)?.icon ?? CATEGORY_ICONS[h.category] ?? '✦')
+                      : (CATEGORY_ICONS[h.category] ?? '✦')}
+                  </span>
                   <div className="habit-info">
                     <h3 className="habit-name">{h.name}</h3>
                     {h.goal && <p className="habit-goal">{h.goal}</p>}
@@ -380,33 +365,39 @@ export default function HabitBoard() {
                     style={{ width: `${Math.min((h.streak?.current / 30) * 100, 100)}%` }} />
                 </div>
 
-                {/* ── Date + time display / editor ── */}
+                {/* ── Schedule display / inline editor ── */}
                 {!isEditSched ? (
                   <button className="habit-schedule-display"
                     onClick={() => {
-                      setScheduleValues(prev => ({ ...prev, [h.id]: { date: displayDate, time: displayTime } }));
+                      setScheduleValues(prev => ({
+                        ...prev,
+                        [h.id]: {
+                          dayOfWeek: h.schedule?.dayOfWeek ?? null,
+                          time: h.schedule?.targetTime ?? '08:00',
+                        }
+                      }));
                       setEditingSchedule(prev => ({ ...prev, [h.id]: true }));
                     }}>
-                    {displayDate || displayTime
-                      ? `📅 ${displayDate ? new Date(displayDate + 'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : ''} ${displayTime ? '🕐 ' + displayTime : ''}`.trim()
-                      : '📅 Set date & reminder time'}
+                    {sched ? `🔔 ${sched}` : '📅 Set recurring schedule'}
                   </button>
                 ) : (
                   <div className="habit-schedule-edit fade-in">
                     <div className="schedule-edit-row">
-                      <div className="schedule-field">
-                        <label className="schedule-label">📅 Date</label>
-                        <input type="date" className="date-input"
-                          value={schedVals.date ?? ''}
-                          min={new Date().toISOString().slice(0,10)}
+                      <div className="modal-field">
+                        <label className="schedule-label">📅 Day</label>
+                        <select className="modal-select"
+                          value={String(schedVals.dayOfWeek ?? 'null')}
                           onChange={e => setScheduleValues(prev => ({
-                            ...prev, [h.id]: { ...prev[h.id], date: e.target.value }
-                          }))} />
+                            ...prev,
+                            [h.id]: { ...prev[h.id], dayOfWeek: e.target.value === 'null' ? null : Number(e.target.value) }
+                          }))}>
+                          {DAYS.map(d => <option key={String(d.value)} value={String(d.value)}>{d.label}</option>)}
+                        </select>
                       </div>
-                      <div className="schedule-field">
+                      <div className="modal-field">
                         <label className="schedule-label">🕐 Time</label>
                         <input type="time" className="time-input"
-                          value={schedVals.time ?? ''}
+                          value={schedVals.time ?? '08:00'}
                           onChange={e => setScheduleValues(prev => ({
                             ...prev, [h.id]: { ...prev[h.id], time: e.target.value }
                           }))} />
@@ -415,7 +406,7 @@ export default function HabitBoard() {
                     <div className="schedule-edit-actions">
                       <button className="btn-time-save" onClick={() => saveSchedule(h.id)}
                         disabled={isSavingSched}>
-                        {isSavingSched ? 'Saving…' : 'Save reminder'}
+                        {isSavingSched ? 'Saving…' : 'Save'}
                       </button>
                       <button className="btn-time-cancel"
                         onClick={() => setEditingSchedule(prev => ({ ...prev, [h.id]: false }))}>
@@ -431,12 +422,11 @@ export default function HabitBoard() {
                     <p>{alt}</p>
                   </div>
                 )}
-
                 {missedDays >= 3 && !alt && (
                   <p className="habit-missed-warning">Missed {missedDays} days — want to adjust?</p>
                 )}
 
-                {isMindful && !checkedToday && (
+                {h.aiMeta?.exerciseId && !checkedToday && (
                   <button className="btn-go-exercise" onClick={() => goToExercise(h)}>
                     ◌ Go to exercise →
                   </button>
@@ -444,24 +434,41 @@ export default function HabitBoard() {
 
                 <div className="habit-actions">
                   {!checkedToday ? (
-                    <button className="btn-checkin done"
+                    <button className="btn-checkin done btn-done-glow"
                       onClick={() => setConfirmModal({ habitId: h.id, habitName: h.name })}>
                       ✓ Done
                     </button>
                   ) : (
-                    <p className="habit-checked-label">✓ Completed today</p>
+                    <div className="habit-checked-badge">
+                      <span className="check-circle">✓</span>
+                      <span>Completed today</span>
+                    </div>
                   )}
                   <button className="btn-delete-habit"
                     onClick={() => setDeleteModal({ habitId: h.id, habitName: h.name })}
-                    title="Remove habit">
-                    🗑
-                  </button>
+                    title="Remove habit">🗑</button>
                 </div>
+                {!checkedToday && (
+                  <button className="btn-missed-today"
+                    onClick={() => handleMissedHabit(h)}>
+                    I missed it today
+                  </button>
+                )}
 
               </div>
             );
           })}
         </div>
+      )}
+
+      {/* ── Add habit modal ── */}
+      {showModal && (
+        <AddHabitModal
+          defaultValues={modalDefaults}
+          dupError={dupError}
+          onSave={handleModalSave}
+          onCancel={() => { setShowModal(false); setDupError(''); }}
+        />
       )}
 
       {confirmModal && (
@@ -478,7 +485,7 @@ export default function HabitBoard() {
       {deleteModal && (
         <ConfirmModal
           title="Remove this habit?"
-          message={`"${deleteModal.habitName}" will be archived. You can always add it back.`}
+          message={`"${deleteModal.habitName}" will be archived.`}
           confirmLabel="Remove"
           cancelLabel="Keep it"
           onConfirm={handleDelete}

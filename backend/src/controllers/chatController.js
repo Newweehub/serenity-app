@@ -30,3 +30,42 @@ export async function chat(req, res) {
 
   res.json({ reply, intent });
 }
+
+/**
+ * POST /api/chat/journal
+ * Dedicated journal follow-up endpoint — always uses journalingReflection prompt.
+ * Never routes to mindfulnessCoach regardless of message content.
+ * Body: { message, history? }
+ */
+export async function journalChat(req, res) {
+  const userId = req.userId;
+  const { message, history = [] } = req.body;
+
+  const context = await buildContext(userId);
+
+  // Import here to avoid circular dependency
+  const { openaiClient, MODEL } = await import('../agents/openaiClient.js');
+  const { prompts } = await import('../agents/prompts.js');
+
+  const messages = [
+    { role: 'system', content: prompts.journalingReflection(context) },
+    ...history.map(m => ({ role: m.role, content: m.content })),
+    { role: 'user', content: message },
+  ];
+
+  const response = await openaiClient.chat.completions.create({
+    model: MODEL,
+    max_tokens: 400,
+    temperature: 0.7,
+    messages,
+  });
+
+  let reply = response.choices[0]?.message?.content ?? "I'm here. Tell me more.";
+
+  // Safety net — if model returns JSON despite prompt, intercept it
+  if (reply.trim().startsWith('{') || reply.trim().startsWith('[')) {
+    reply = "I'm here with you. What else is on your mind?";
+  }
+
+  res.json({ reply });
+}
