@@ -21,49 +21,6 @@ function greeting(name) {
   return `${prefix}, ${name || 'friend'}.`;
 }
 
-const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-
-function HabitCalendar({ habits, loading }) {
-  if (loading) return <div className="skeleton" style={{height:80}} />;
-  if (!habits.length) return <p className="dash-empty">No habits scheduled yet.</p>;
-
-  // Group habits by dayOfWeek (null = every day)
-  const byDay = Array.from({length: 7}, () => []);
-  habits.forEach(h => {
-    if (h.schedule?.targetTime) {
-      if (h.schedule.dayOfWeek === null || h.schedule.dayOfWeek === undefined) {
-        byDay.forEach(d => d.push(h));
-      } else {
-        byDay[h.schedule.dayOfWeek]?.push(h);
-      }
-    }
-  });
-
-  const today = new Date().getDay();
-
-  return (
-    <div className="habit-calendar">
-      {DAY_LABELS.map((label, i) => (
-        <div key={i} className={`cal-col ${i === today ? 'today' : ''}`}>
-          <div className="cal-day-label">{label}</div>
-          <div className="cal-events">
-            {byDay[i].slice(0,3).map(h => (
-              <div key={h.id} className="cal-event" title={`${h.name} at ${h.schedule.targetTime}`}>
-                <span className="cal-event-time">{h.schedule.targetTime}</span>
-                <span className="cal-event-name">{h.name}</span>
-              </div>
-            ))}
-            {byDay[i].length > 3 && (
-              <div className="cal-event-more">+{byDay[i].length - 3} more</div>
-            )}
-            {byDay[i].length === 0 && <div className="cal-empty-day" />}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useUser();
@@ -178,21 +135,34 @@ export default function Dashboard() {
               No habits yet.{' '}
               <button className="inline-link" onClick={() => navigate('/habits')}>Add one →</button>
             </p>
-          ) : (
-            <ul className="focus-habit-list">
-              {habits.slice(0, 5).map(h => {
-                const done = h.checkIns?.some(c => c.date === today && c.completed);
-                return (
-                  <li key={h.id} className={`focus-habit-item ${done ? 'done' : ''}`}
-                    onClick={() => navigate('/habits')}>
-                    <span className="focus-check">{done ? '✓' : '○'}</span>
-                    <span className="focus-name">{h.name}</span>
-                    <span className="focus-streak">{h.streak?.current ?? 0}d 🔥</span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          ) : (() => {
+            const todayDay = new Date().getDay();
+            const todaysHabits = habits.filter(h => {
+              const dw = h.schedule?.dayOfWeek;
+              return dw === null || dw === undefined || Number(dw) === todayDay;
+            });
+            return todaysHabits.length === 0 ? (
+              <p className="dash-empty">No habits scheduled for today. <button className="inline-link" onClick={() => navigate('/habits')}>Add one →</button></p>
+            ) : (
+              <ul className="focus-habit-list">
+                {todaysHabits.slice(0, 5).map(h => {
+                  const done = h.checkIns?.some(c => c.date === today && c.completed);
+                  return (
+                    <li key={h.id} className={`focus-habit-item ${done ? 'done' : ''}`}
+                      onClick={() => navigate('/habits')}>
+                      <span className="focus-check">{done ? '✓' : '○'}</span>
+                      <span className="focus-name">{h.name}</span>
+                      {h.schedule?.targetTime && (
+                        <span className="focus-time">{h.schedule.targetTime}</span>
+                      )}
+                      <span className="focus-streak">{h.streak?.current ?? 0}d 🔥</span>
+                    </li>
+                  );
+                })}
+              </ul>
+            );
+          })()
+          }
         </section>
 
         {/* ── Insight snippet from insight page ── */}
@@ -270,11 +240,6 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* ── Habit calendar (weekly view) ── */}
-        <section className="dash-card habit-calendar-card">
-          <h3 className="card-label">This week's schedule</h3>
-          <HabitCalendar habits={habits} loading={habitsLoading} />
-        </section>
       </div>
 
       {/* ── Quick nav ── */}

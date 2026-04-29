@@ -8,6 +8,7 @@ const NAV = [
   { to: '/mindfulness', label: 'Mindfulness',  icon: '◌' },
   { to: '/habits',      label: 'Habit Board',  icon: '▦' },
   { to: '/insight',     label: 'Insight',      icon: '◈' },
+  { to: '/settings',    label: 'Settings',     icon: '⚙' },
 ];
 
 export default function Layout() {
@@ -38,10 +39,12 @@ export default function Layout() {
         </ul>
 
         <div className="sidebar-user">
-          <div className="user-avatar">
-            {user?.profile?.displayName?.[0] ?? '?'}
-          </div>
-          <span className="user-name">{user?.profile?.displayName ?? '—'}</span>
+          <NavLink to="/settings" className="sidebar-user-link">
+            <div className="user-avatar">
+              {user?.profile?.displayName?.[0] ?? '?'}
+            </div>
+            <span className="user-name">{user?.profile?.displayName ?? '—'}</span>
+          </NavLink>
         </div>
       </nav>
 

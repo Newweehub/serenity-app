@@ -437,3 +437,12 @@
   .dash-bottom-row-3 { grid-template-columns: 1fr; }
   .habit-calendar { grid-template-columns: repeat(7, 1fr); font-size: 9px; }
 }
+
+/* ── Focus time in today's habit list ───────────────────────────────────── */
+.focus-time {
+  font-size: 11px;
+  color: var(--sage);
+  font-weight: 500;
+  margin-left: auto;
+  margin-right: 4px;
+}

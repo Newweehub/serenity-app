@@ -26,6 +26,53 @@ function scheduleLabel(schedule) {
   return `${day} at ${time}`;
 }
 
+
+// ── Habit Calendar ────────────────────────────────────────────────────────────
+const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function HabitCalendar({ habits, onHabitClick }) {
+  if (!habits.length) return <p className="cal-empty-msg">No habits yet — add one below.</p>;
+
+  // Show ALL habits: unscheduled go in every column, scheduled go to their day
+  const byDay = Array.from({ length: 7 }, () => []);
+  habits.forEach(h => {
+    const dw = h.schedule?.dayOfWeek;
+    if (!h.schedule?.targetTime) {
+      // No time set — show in today only as unscheduled
+      byDay[new Date().getDay()].push({ ...h, unscheduled: true });
+    } else if (dw === null || dw === undefined) {
+      byDay.forEach(d => d.push(h));
+    } else {
+      byDay[Number(dw)]?.push(h);
+    }
+  });
+
+  const todayIdx = new Date().getDay();
+
+  return (
+    <div className="habit-calendar">
+      {DAY_LABELS.map((label, i) => (
+        <div key={i} className={"cal-col" + (i === todayIdx ? " today" : "")}>
+          <div className="cal-day-label">{label}</div>
+          <div className="cal-events">
+            {byDay[i].map(h => (
+              <button key={h.id + i} className={"cal-event" + (h.unscheduled ? " cal-unscheduled" : "")}
+                title={h.name + (h.schedule?.targetTime ? " at " + h.schedule.targetTime : " — no time set")}
+                onClick={() => onHabitClick && onHabitClick(h.id)}>
+                {h.schedule?.targetTime && (
+                  <span className="cal-event-time">{h.schedule.targetTime}</span>
+                )}
+                <span className="cal-event-name">{h.name}</span>
+              </button>
+            ))}
+            {byDay[i].length === 0 && <div className="cal-empty-day" />}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 export default function HabitBoard() {
   const navigate = useNavigate();
@@ -61,14 +108,11 @@ export default function HabitBoard() {
   const today = new Date().toISOString().slice(0, 10);
 
   // ── Auto-miss detection: write missed check-ins for yesterday ──
-  // Runs once when habits load. If a habit was scheduled yesterday and has no check-in, auto-record a miss.
   useEffect(() => {
     if (!habits.length) return;
-    const yesterday = (() => {
-      const d = new Date(Date.now() - 86_400_000);
-      return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    })();
-    const yesterdayDay = new Date(Date.now() - 86_400_000).getDay();
+    const d = new Date(Date.now() - 86_400_000);
+    const yesterday = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+    const yesterdayDay = d.getDay();
 
     habits.forEach(h => {
       const s = h.schedule;
@@ -77,9 +121,37 @@ export default function HabitBoard() {
       if (!dayMatch) return;
       const alreadyHasEntry = (h.checkIns || []).some(c => c.date === yesterday);
       if (alreadyHasEntry) return;
-      // Silently record a miss for yesterday
       api.habits.checkIn(h.id, { completed: false, note: 'Auto-recorded miss' })
         .then(() => refetch())
+        .catch(() => {});
+    });
+  }, [habits.length]);
+
+  // ── Proactively load adaptation suggestions for repeatedly-missed habits ──
+  // Runs when habits load. If 2+ consecutive misses with no suggestion yet, fetch one.
+  useEffect(() => {
+    if (!habits.length) return;
+    habits.forEach(h => {
+      const missed = getMissedDays(h);
+      if (missed < 2) return;
+      if (altSuggestion[h.id]) return; // already have a suggestion
+
+      api.habits.suggest('I keep missing "' + h.name + '". Suggest a gentler alternative or adjusted timing.')
+        .then(r => {
+          if (r?.suggestion?.confirmationMessage) {
+            setAltSuggestion(prev => ({
+              ...prev,
+              [h.id]: {
+                message: r.suggestion.confirmationMessage,
+                name: r.suggestion.name,
+                category: r.suggestion.category,
+                goal: r.suggestion.goal,
+                suggestedTime: r.suggestion.suggestedTime,
+                dayOfWeek: r.suggestion.suggestedDayOfWeek ?? null,
+              }
+            }));
+          }
+        })
         .catch(() => {});
     });
   }, [habits.length]);
@@ -179,7 +251,7 @@ export default function HabitBoard() {
       });
       setShowModal(true);
     } catch {
-      addToast('Could not generate a suggestion — try rephrasing your goal.');
+      console.warn('Suggestion failed');
     } finally {
       setSuggesting(false);
     }
@@ -212,7 +284,7 @@ export default function HabitBoard() {
       setDupError('');
       refetch();
     } catch {
-      addToast('Could not save habit. Please try again.');
+      console.warn('Save failed');
     }
   }
 
@@ -257,7 +329,8 @@ export default function HabitBoard() {
     try {
       const result = await api.habits.checkIn(habit.id, { completed: false, note: 'Missed today' });
       if (result.reframe) {
-        setAltSuggestion(prev => ({ ...prev, [habit.id]: result.reframe }));
+        // Store as object consistent with proactive suggestion shape
+        setAltSuggestion(prev => ({ ...prev, [habit.id]: { message: result.reframe } }));
       }
       // If 3+ missed, suggest alternative
       const missedCount = getMissedDays({ ...habit, checkIns: [{ date: new Date().toISOString().slice(0,10), completed: false }, ...(habit.checkIns || [])] });
@@ -284,6 +357,21 @@ export default function HabitBoard() {
 
   return (
     <div className="habit-board">
+
+      {/* ── Weekly Calendar — top of page ── */}
+      {!loading && habits.length > 0 && (
+        <section className="dash-card board-calendar-section fade-up">
+          <h3 className="card-label" style={{marginBottom: 12}}>Weekly schedule — click any event to jump to that habit</h3>
+          <HabitCalendar habits={habits} onHabitClick={(habitId) => {
+            const el = habitRefs.current[habitId];
+            if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              el.classList.add('habit-card-highlight');
+              setTimeout(() => el.classList.remove('habit-card-highlight'), 2000);
+            }
+          }} />
+        </section>
+      )}
 
       {/* ── Header ── */}
       <div className="board-header fade-up">
@@ -418,12 +506,32 @@ export default function HabitBoard() {
 
                 {alt && (
                   <div className="habit-alt-suggestion fade-in">
-                    <span className="alt-label">💡 Serenity suggests:</span>
-                    <p>{alt}</p>
+                    <span className="alt-label">💡 Missed {missedDays} day{missedDays !== 1 ? 's' : ''} — Serenity suggests:</span>
+                    <p className="alt-message">{typeof alt === 'object' ? alt.message : alt}</p>
+                    {typeof alt === 'object' && alt.name && (
+                      <button className="btn-adapt-habit"
+                        onClick={() => {
+                          // alt.suggestedTime → time, alt.dayOfWeek → dayOfWeek (AI suggestion fields)
+                          const suggestedDay  = alt.dayOfWeek ?? null;
+                          const suggestedTime = alt.suggestedTime ?? alt.time ?? '08:00';
+                          setModalDefaults({
+                            name:       alt.name ?? h.name,
+                            category:   alt.category ?? h.category,
+                            goal:       alt.goal ?? h.goal ?? '',
+                            dayOfWeek:  suggestedDay,
+                            time:       suggestedTime,
+                            exerciseId: h.aiMeta?.exerciseId ?? null,
+                          });
+                          setDupError('');
+                          setShowModal(true);
+                        }}>
+                        + Try this adapted habit
+                      </button>
+                    )}
                   </div>
                 )}
-                {missedDays >= 3 && !alt && (
-                  <p className="habit-missed-warning">Missed {missedDays} days — want to adjust?</p>
+                {missedDays >= 2 && !alt && (
+                  <p className="habit-missed-warning">Missed {missedDays} days — loading a suggestion…</p>
                 )}
 
                 {h.aiMeta?.exerciseId && !checkedToday && (

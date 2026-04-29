@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useApi } from '../hooks/useApi.js';
 import { useChat } from '../hooks/useChat.js';
@@ -6,6 +6,7 @@ import { api } from '../lib/api.js';
 import { EXERCISES, EXERCISE_CATEGORIES, findExercise } from '../lib/exercises.js';
 import './Mindfulness.css';
 import MicButton from '../components/ui/MicButton.jsx';
+import { useTTSContext } from '../context/TTSContext.jsx';
 import AddHabitModal from '../components/ui/AddHabitModal.jsx';
 
 const DIFFICULTY_COLOR = {
@@ -232,6 +233,8 @@ export default function Mindfulness() {
 // ── Session view ──────────────────────────────────────────────────────────────
 function SessionView({ exercise, fromHabitId, latestMood, sessionDone, onAddToBoard, onDone, onBack }) {
   const { messages, loading, send } = useChat();
+  const { speak, speaking, supported: ttsSupported, enabled: ttsEnabled, toggle: toggleTTS } = useTTSContext();
+  const prevLen = useRef(0);
   const [input,   setInput]   = useState('');
   const [greeted, setGreeted] = useState(false);
 
@@ -244,6 +247,15 @@ function SessionView({ exercise, fromHabitId, latestMood, sessionDone, onAddToBo
       send(`${moodCtx}Please guide me through the "${exercise.name}" exercise.`);
     }
   }, []);
+
+  // Auto-speak new assistant messages
+  useEffect(() => {
+    if (messages.length > prevLen.current) {
+      const newest = messages[messages.length - 1];
+      if (newest?.role === 'assistant') speak(newest.content);
+    }
+    prevLen.current = messages.length;
+  }, [messages, speak]);
 
   function handleSubmit(e) {
     e.preventDefault();
@@ -284,6 +296,15 @@ function SessionView({ exercise, fromHabitId, latestMood, sessionDone, onAddToBo
       </div>
 
       <div className="session-chat-area">
+        {ttsSupported && (
+          <div className="session-tts-row">
+            <button className={"tts-toggle " + (ttsEnabled ? "active" : "")} onClick={toggleTTS}
+              title={ttsEnabled ? "Turn off AI voice" : "Turn on AI voice"}>
+              {speaking ? "🔊" : ttsEnabled ? "🔈" : "🔇"}
+              <span>{ttsEnabled ? (speaking ? "Speaking…" : "Voice on") : "Voice off"}</span>
+            </button>
+          </div>
+        )}
         <div className="session-messages">
           {messages.map((msg, i) => (
             <div key={i} className={`session-bubble ${msg.role} fade-up`}>

@@ -6,6 +6,7 @@ import Journal from './pages/Journal.jsx';
 import Mindfulness from './pages/Mindfulness.jsx';
 import HabitBoard from './pages/HabitBoard.jsx';
 import Insight from './pages/Insight.jsx';
+import Settings from './pages/Settings.jsx';
 import { api } from './lib/api.js';
 import './App.css';
 
@@ -148,6 +149,7 @@ export default function App() {
           <Route path="mindfulness" element={<Mindfulness />} />
           <Route path="habits"      element={<HabitBoard />} />
           <Route path="insight"     element={<Insight />} />
+          <Route path="settings"    element={<Settings />} />
         </Route>
       </Routes>
     </>

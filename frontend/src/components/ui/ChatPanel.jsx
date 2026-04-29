@@ -1,16 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { useChat } from '../../hooks/useChat.js';
-import './ChatPanel.css';
+import { useTTSContext } from '../../context/TTSContext.jsx';
 import MicButton from './MicButton.jsx';
+import './ChatPanel.css';
 
 export default function ChatPanel({ initialMessage, placeholder = 'Talk to Serenity…' }) {
   const { messages, loading, error, send } = useChat();
+  const { speak, speaking, supported: ttsSupported, enabled: ttsEnabled, toggle: toggleTTS } = useTTSContext();
   const [input, setInput] = useState('');
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
   const seeded    = useRef(false);
+  const prevLen   = useRef(0);
 
-  // Seed with an initial AI greeting if provided
   useEffect(() => {
     if (initialMessage && !seeded.current) {
       seeded.current = true;
@@ -18,6 +20,15 @@ export default function ChatPanel({ initialMessage, placeholder = 'Talk to Seren
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-speak new assistant messages
+  useEffect(() => {
+    if (messages.length > prevLen.current) {
+      const newest = messages[messages.length - 1];
+      if (newest?.role === 'assistant') speak(newest.content);
+    }
+    prevLen.current = messages.length;
+  }, [messages, speak]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -40,6 +51,20 @@ export default function ChatPanel({ initialMessage, placeholder = 'Talk to Seren
 
   return (
     <div className="chat-panel">
+      {/* TTS toggle in panel header */}
+      {ttsSupported && (
+        <div className="chat-panel-header">
+          <button
+            className={`tts-toggle ${ttsEnabled ? 'active' : ''}`}
+            onClick={toggleTTS}
+            title={ttsEnabled ? 'Turn off AI voice' : 'Turn on AI voice'}
+          >
+            {speaking ? '🔊' : ttsEnabled ? '🔈' : '🔇'}
+            <span>{ttsEnabled ? (speaking ? 'Speaking…' : 'Voice on') : 'Voice off'}</span>
+          </button>
+        </div>
+      )}
+
       <div className="chat-messages">
         {messages.length === 0 && !loading && (
           <p className="chat-empty">Your conversation will appear here…</p>

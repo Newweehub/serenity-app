@@ -260,8 +260,13 @@ export default function Journal() {
                 <div ref={followEndRef} />
               </div>
 
-              {/* Follow-up input */}
+              {/* Follow-up input with voice */}
               <form className="followup-form" onSubmit={handleFollowUp}>
+                <MicButton
+                  onResult={spoken => setFollowInput(prev => (prev ? prev + ' ' : '') + spoken.trim())}
+                  size="sm"
+                  title="Speak your reply to Serenity"
+                />
                 <input
                   className="followup-input"
                   value={followInput}
