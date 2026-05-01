@@ -178,3 +178,27 @@ export async function updateSchedule(habitId, userId, { dayOfWeek, targetTime, r
   habit.updatedAt = new Date().toISOString();
   return habitRepository.save(habit);
 }
+
+/**
+ * Update an existing habit's name, category, goal and schedule.
+ * Used by the "adapt habit" flow when AI suggests a modification.
+ */
+export async function updateHabit(habitId, userId, { name, category, goal, schedule }) {
+  const habit = await habitRepository.findById(habitId, userId);
+  if (!habit) throw Object.assign(new Error('Habit not found'), { status: 404 });
+
+  if (name     !== undefined) habit.name     = name;
+  if (category !== undefined) habit.category = category;
+  if (goal     !== undefined) habit.goal     = goal;
+
+  if (schedule) {
+    habit.schedule = {
+      ...habit.schedule,
+      ...(schedule.dayOfWeek  !== undefined && { dayOfWeek:  schedule.dayOfWeek }),
+      ...(schedule.targetTime !== undefined && { targetTime: schedule.targetTime }),
+    };
+  }
+
+  habit.updatedAt = new Date().toISOString();
+  return habitRepository.save(habit);
+}

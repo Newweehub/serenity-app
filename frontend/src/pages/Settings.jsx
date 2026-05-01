@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { useUser } from '../hooks/useUser.js';
+import { useUser, invalidateUserCache } from '../hooks/useUser.js';
 import { api } from '../lib/api.js';
 import './Settings.css';
+import { useTTSContext } from '../context/TTSContext.jsx';
+import { useEffect } from 'react';
 
 export default function Settings() {
   const { user, loading } = useUser();
+  const { settings: ttsSettings, updateSettings, getAvailableVoices, supported: ttsSupported } = useTTSContext();
+  const [availableVoices, setAvailableVoices] = useState([]);
   const [displayName,    setDisplayName]    = useState('');
   const [reminderTime,   setReminderTime]   = useState('');
   const [notifications,  setNotifications]  = useState(true);
@@ -12,8 +16,18 @@ export default function Settings() {
   const [saved,          setSaved]          = useState(false);
   const [saving,         setSaving]         = useState(false);
 
+  // Load available TTS voices
+  useEffect(() => {
+    if (!ttsSupported) return;
+    // Voices load async in Chrome
+    const load = () => setAvailableVoices(getAvailableVoices());
+    load();
+    window.speechSynthesis.onvoiceschanged = load;
+    return () => { window.speechSynthesis.onvoiceschanged = null; };
+  }, [ttsSupported, getAvailableVoices]);
+
   // Pre-fill from user profile once loaded
-  useState(() => {
+  useEffect(() => {
     if (user) {
       setDisplayName(user.profile?.displayName ?? '');
       setReminderTime(user.preferences?.reminderTime ?? '08:00');
@@ -32,6 +46,7 @@ export default function Settings() {
         notificationsEnabled: notifications,
         preferredMindfulnessDuration: duration,
       });
+      invalidateUserCache(); // clear stale cache so nav/dashboard update immediately
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
@@ -130,6 +145,43 @@ export default function Settings() {
 
         </form>
       </section>
+
+      {/* Voice Settings */}
+      {ttsSupported && (
+        <section className="settings-section fade-up">
+          <h2 className="settings-section-title">AI Voice</h2>
+          <p className="settings-hint">Customise how Serenity sounds. Toggle AI voice in any chat panel.</p>
+
+          <div className="settings-field">
+            <label className="settings-label">Voice</label>
+            <select className="settings-input" value={ttsSettings.voiceName}
+              onChange={e => updateSettings({ voiceName: e.target.value })}>
+              <option value="">Auto (recommended)</option>
+              {availableVoices.map(v => (
+                <option key={v.name} value={v.name}>{v.name} ({v.lang})</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="settings-field">
+            <label className="settings-label">Speed — {Math.round(ttsSettings.rate * 100)}%</label>
+            <input type="range" min="0.6" max="1.4" step="0.05"
+              value={ttsSettings.rate}
+              onChange={e => updateSettings({ rate: parseFloat(e.target.value) })}
+              className="settings-range" />
+            <div className="settings-range-labels"><span>Slower</span><span>Faster</span></div>
+          </div>
+
+          <div className="settings-field">
+            <label className="settings-label">Pitch — {Math.round(ttsSettings.pitch * 100)}%</label>
+            <input type="range" min="0.7" max="1.4" step="0.05"
+              value={ttsSettings.pitch}
+              onChange={e => updateSettings({ pitch: parseFloat(e.target.value) })}
+              className="settings-range" />
+            <div className="settings-range-labels"><span>Lower</span><span>Higher</span></div>
+          </div>
+        </section>
+      )}
 
       {/* Account */}
       <section className="settings-section fade-up">

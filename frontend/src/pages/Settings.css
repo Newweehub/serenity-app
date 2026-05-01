@@ -166,3 +166,16 @@
 @media (max-width: 480px) {
   .settings-section { padding: 18px 16px; }
 }
+
+.settings-range {
+  width: 100%;
+  accent-color: var(--forest);
+  cursor: pointer;
+}
+.settings-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--ink-faint);
+  margin-top: 2px;
+}

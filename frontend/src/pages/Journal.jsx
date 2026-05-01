@@ -5,6 +5,7 @@ import { api } from '../lib/api.js';
 import { findExercise } from '../lib/exercises.js';
 import './Journal.css';
 import MicButton from '../components/ui/MicButton.jsx';
+import { useTTSContext } from '../context/TTSContext.jsx';
 import '../components/ui/ConfirmModal.css';
 
 function EntryModal({ entry, onClose }) {
@@ -100,6 +101,8 @@ export default function Journal() {
   const [followLoading, setFollowLoading] = useState(false);
   const [selectedEntry,  setSelectedEntry]  = useState(null);
   const followEndRef = useRef(null);
+  const { speak, speaking, supported: ttsSupported, enabled: ttsEnabled, toggle: toggleTTS } = useTTSContext();
+  const prevFollowLen = useRef(0);
 
   const { data: listData, loading: listLoading, refetch } = useApi(
     () => api.journal.list(50, 0), []
@@ -118,6 +121,15 @@ export default function Journal() {
   useEffect(() => {
     followEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [followUps, followLoading]);
+
+  // Auto-speak new assistant messages in follow-up
+  useEffect(() => {
+    if (followUps.length > prevFollowLen.current) {
+      const newest = followUps[followUps.length - 1];
+      if (newest?.role === 'assistant') speak(newest.content);
+    }
+    prevFollowLen.current = followUps.length;
+  }, [followUps, speak]);
 
   async function handleSave() {
     if (!text.trim()) return;
@@ -244,6 +256,16 @@ export default function Journal() {
               </div>
 
               {/* AI follow-up conversation */}
+              {ttsSupported && (
+                <div className="followup-tts-row">
+                  <button className={"tts-toggle " + (ttsEnabled ? "active" : "")}
+                    onClick={toggleTTS}
+                    title={ttsEnabled ? "Turn off AI voice" : "Turn on AI voice"}>
+                    {speaking ? "🔊" : ttsEnabled ? "🔈" : "🔇"}
+                    <span>{ttsEnabled ? (speaking ? "Speaking…" : "Voice on") : "Voice off"}</span>
+                  </button>
+                </div>
+              )}
               <div className="followup-chat">
                 {followUps.map((msg, i) => (
                   <div key={i} className={`followup-bubble ${msg.role} fade-up`}>

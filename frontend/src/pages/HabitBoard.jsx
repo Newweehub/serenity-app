@@ -30,15 +30,21 @@ function scheduleLabel(schedule) {
 // ── Habit Calendar ────────────────────────────────────────────────────────────
 const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
+function sortByTime(list) {
+  return [...list].sort((a, b) => {
+    const ta = a.schedule?.targetTime ?? '99:99';
+    const tb = b.schedule?.targetTime ?? '99:99';
+    return ta.localeCompare(tb);
+  });
+}
+
 function HabitCalendar({ habits, onHabitClick }) {
   if (!habits.length) return <p className="cal-empty-msg">No habits yet — add one below.</p>;
 
-  // Show ALL habits: unscheduled go in every column, scheduled go to their day
   const byDay = Array.from({ length: 7 }, () => []);
   habits.forEach(h => {
     const dw = h.schedule?.dayOfWeek;
     if (!h.schedule?.targetTime) {
-      // No time set — show in today only as unscheduled
       byDay[new Date().getDay()].push({ ...h, unscheduled: true });
     } else if (dw === null || dw === undefined) {
       byDay.forEach(d => d.push(h));
@@ -55,9 +61,10 @@ function HabitCalendar({ habits, onHabitClick }) {
         <div key={i} className={"cal-col" + (i === todayIdx ? " today" : "")}>
           <div className="cal-day-label">{label}</div>
           <div className="cal-events">
-            {byDay[i].map(h => (
-              <button key={h.id + i} className={"cal-event" + (h.unscheduled ? " cal-unscheduled" : "")}
-                title={h.name + (h.schedule?.targetTime ? " at " + h.schedule.targetTime : " — no time set")}
+            {sortByTime(byDay[i]).map(h => (
+              <button key={h.id + i}
+                className={"cal-event" + (h.unscheduled ? " cal-unscheduled" : "")}
+                title={h.name + (h.schedule?.targetTime ? " at " + h.schedule.targetTime : "")}
                 onClick={() => onHabitClick && onHabitClick(h.id)}>
                 {h.schedule?.targetTime && (
                   <span className="cal-event-time">{h.schedule.targetTime}</span>
@@ -86,6 +93,7 @@ export default function HabitBoard() {
   const [suggesting,    setSuggesting]    = useState(false);
   const [showModal,     setShowModal]     = useState(false);
   const [modalDefaults, setModalDefaults] = useState({});
+  const [updateHabitId, setUpdateHabitId]  = useState(null); // if set, modal PATCHes instead of POSTing
   const [dupError,      setDupError]      = useState('');
   const [addMode,       setAddMode]       = useState(false);
 
@@ -142,12 +150,13 @@ export default function HabitBoard() {
             setAltSuggestion(prev => ({
               ...prev,
               [h.id]: {
-                message: r.suggestion.confirmationMessage,
-                name: r.suggestion.name,
-                category: r.suggestion.category,
-                goal: r.suggestion.goal,
+                message:       r.suggestion.confirmationMessage,
+                name:          r.suggestion.name,
+                category:      r.suggestion.category,
+                goal:          r.suggestion.goal,
                 suggestedTime: r.suggestion.suggestedTime,
-                dayOfWeek: r.suggestion.suggestedDayOfWeek ?? null,
+                time:          r.suggestion.suggestedTime,       // alias for AddHabitModal
+                dayOfWeek:     r.suggestion.suggestedDayOfWeek ?? null,
               }
             }));
           }
@@ -267,17 +276,36 @@ export default function HabitBoard() {
   // ── Save from modal ──
   async function handleModalSave({ name, category, goal, dayOfWeek, time }) {
     const exerciseId = modalDefaults.exerciseId ?? null;
-    const err = getDuplicateError({ name, dayOfWeek, time, exerciseId });
-    if (err) { setDupError(err); return; }
+
+    // In update mode, skip duplicate check (we're replacing an existing habit)
+    if (!updateHabitId) {
+      const err = getDuplicateError({ name, dayOfWeek, time, exerciseId });
+      if (err) { setDupError(err); return; }
+    }
+
     try {
-      await api.habits.create({
-        name,
-        category,
-        goal,
-        schedule: { dayOfWeek, targetTime: time },
-        addedVia: modalDefaults.exerciseId ? 'ai_suggestion' : 'manual',
-        aiMeta: { exerciseId },
-      });
+      if (updateHabitId) {
+        // ADAPT flow — patch the existing habit in place
+        await api.habits.update(updateHabitId, {
+          name,
+          category,
+          goal,
+          schedule: { dayOfWeek, targetTime: time },
+        });
+        // Clear the adaptation suggestion for this habit
+        setAltSuggestion(prev => { const n = {...prev}; delete n[updateHabitId]; return n; });
+        setUpdateHabitId(null);
+      } else {
+        // CREATE flow — new habit
+        await api.habits.create({
+          name,
+          category,
+          goal,
+          schedule: { dayOfWeek, targetTime: time },
+          addedVia: modalDefaults.exerciseId ? 'ai_suggestion' : 'manual',
+          aiMeta: { exerciseId },
+        });
+      }
       setShowModal(false);
       setSuggestInput('');
       setAddMode(false);
@@ -361,7 +389,10 @@ export default function HabitBoard() {
       {/* ── Weekly Calendar — top of page ── */}
       {!loading && habits.length > 0 && (
         <section className="dash-card board-calendar-section fade-up">
-          <h3 className="card-label" style={{marginBottom: 12}}>Weekly schedule — click any event to jump to that habit</h3>
+          <div className="card-header-row" style={{marginBottom: 12}}>
+            <h3 className="card-label">Weekly schedule</h3>
+            <span className="cal-hint">Click an event to jump to that habit ↓</span>
+          </div>
           <HabitCalendar habits={habits} onHabitClick={(habitId) => {
             const el = habitRefs.current[habitId];
             if (el) {
@@ -511,9 +542,10 @@ export default function HabitBoard() {
                     {typeof alt === 'object' && alt.name && (
                       <button className="btn-adapt-habit"
                         onClick={() => {
-                          // alt.suggestedTime → time, alt.dayOfWeek → dayOfWeek (AI suggestion fields)
                           const suggestedDay  = alt.dayOfWeek ?? null;
-                          const suggestedTime = alt.suggestedTime ?? alt.time ?? '08:00';
+                          const suggestedTime = alt.suggestedTime ?? alt.time ?? h.schedule?.targetTime ?? '08:00';
+                          // Set update mode — modal will PATCH this habit, not create a new one
+                          setUpdateHabitId(h.id);
                           setModalDefaults({
                             name:       alt.name ?? h.name,
                             category:   alt.category ?? h.category,
@@ -525,7 +557,7 @@ export default function HabitBoard() {
                           setDupError('');
                           setShowModal(true);
                         }}>
-                        + Try this adapted habit
+                        ✏ Adapt this habit
                       </button>
                     )}
                   </div>
@@ -575,7 +607,8 @@ export default function HabitBoard() {
           defaultValues={modalDefaults}
           dupError={dupError}
           onSave={handleModalSave}
-          onCancel={() => { setShowModal(false); setDupError(''); }}
+          onCancel={() => { setShowModal(false); setDupError(''); setUpdateHabitId(null); }}
+          title={updateHabitId ? 'Adapt this habit' : 'Add to Habit Board'}
         />
       )}
 

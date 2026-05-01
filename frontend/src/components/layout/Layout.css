@@ -1,9 +1,12 @@
+/* ── Layout shell ────────────────────────────────────────────────────────── */
 .layout {
   display: flex;
   min-height: 100vh;
 }
 
-/* ── Sidebar ─────────────────────────────────────────────────────────────── */
+/* ══════════════════════════════════════════
+   DESKTOP SIDEBAR  (≥ 769px)
+   ══════════════════════════════════════════ */
 .sidebar {
   width: var(--nav-w);
   min-height: 100vh;
@@ -13,6 +16,7 @@
   padding: 28px 0 20px;
   position: sticky;
   top: 0;
+  height: 100vh;
   flex-shrink: 0;
 }
 
@@ -20,9 +24,10 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 22px 32px;
+  padding: 0 22px 28px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
-  margin-bottom: 16px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
 }
 
 .brand-leaf { font-size: 20px; }
@@ -35,13 +40,14 @@
   letter-spacing: 0.04em;
 }
 
-/* ── Nav items ───────────────────────────────────────────────────────────── */
+/* Nav items */
 .sidebar-nav {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 2px;
   padding: 0 10px;
+  overflow-y: auto;
 }
 
 .nav-item {
@@ -56,34 +62,19 @@
   letter-spacing: 0.02em;
   transition: background 0.2s, color 0.2s;
 }
+.nav-item:hover  { background: rgba(255,255,255,0.07); color: var(--parchment); }
+.nav-item.active { background: var(--forest-mid); color: var(--parchment); }
 
-.nav-item:hover {
-  background: rgba(255,255,255,0.07);
-  color: var(--parchment);
-}
+.nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
 
-.nav-item.active {
-  background: var(--forest-mid);
-  color: var(--parchment);
-}
-
-.nav-icon {
-  font-size: 16px;
-  width: 20px;
-  text-align: center;
-  flex-shrink: 0;
-}
-
-/* ── Sidebar user ────────────────────────────────────────────────────────── */
-.sidebar-user {
-  margin-top: auto;
-}
+/* Sidebar user */
+.sidebar-user { margin-top: auto; flex-shrink: 0; }
 
 .sidebar-user-link {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 22px 0;
+  padding: 14px 22px 0;
   border-top: 1px solid rgba(255,255,255,0.08);
   transition: opacity 0.2s;
 }
@@ -122,9 +113,12 @@
   min-width: 0;
 }
 
-.topbar {
-  padding: 28px 40px 0;
-}
+/* Mobile top bar — hidden on desktop */
+.mobile-topbar { display: none; }
+.mobile-brand  { display: none; }
+.mobile-avatar { display: none; }
+
+.topbar { padding: 28px 40px 0; }
 
 .page-title {
   font-family: var(--font-display);
@@ -139,19 +133,144 @@
   flex: 1;
 }
 
-/* ── Responsive ──────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
-  .layout { flex-direction: column; }
-  .sidebar {
-    width: 100%;
-    min-height: auto;
-    position: static;
-    padding: 16px 0 12px;
+/* ── Bottom nav — hidden on desktop ──────────────────────────────────────── */
+.bottom-nav { display: none; }
+
+/* ══════════════════════════════════════════
+   TABLET  (481px – 768px)
+   ══════════════════════════════════════════ */
+@media (min-width: 481px) and (max-width: 768px) {
+  .sidebar { width: 64px; }
+  .nav-label    { display: none; }
+  .brand-name   { display: none; }
+  .sidebar-brand { justify-content: center; padding: 0 0 20px; }
+  .user-name    { display: none; }
+  .sidebar-user-link { justify-content: center; padding: 14px 0 0; }
+  .nav-item { justify-content: center; padding: 10px 0; }
+
+  .topbar { padding: 20px 24px 0; }
+  .page-content { padding: 16px 24px 32px; }
+}
+
+/* ══════════════════════════════════════════
+   MOBILE  (≤ 480px)
+   — Logo at top, bottom nav bar
+   ══════════════════════════════════════════ */
+@media (max-width: 480px) {
+  .layout {
+    flex-direction: column;
+    min-height: 100vh;
+    padding-bottom: 64px; /* room for bottom nav */
   }
-  .sidebar-brand { padding-bottom: 12px; margin-bottom: 8px; }
-  .sidebar-nav { flex-direction: row; overflow-x: auto; padding: 0 8px; }
-  .nav-label { display: none; }
-  .sidebar-user { display: none; }
-  .page-content { padding: 16px 20px 32px; }
-  .topbar { padding: 20px 20px 0; }
+
+  /* Hide desktop sidebar entirely */
+  .sidebar { display: none; }
+
+  /* Mobile top bar */
+  .mobile-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--forest);
+    padding: 12px 18px;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    flex-shrink: 0;
+  }
+
+  .mobile-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .mobile-brand .brand-leaf { font-size: 18px; }
+
+  .mobile-brand .brand-name {
+    font-family: var(--font-display);
+    font-size: 20px;
+    font-weight: 400;
+    color: var(--parchment);
+    letter-spacing: 0.04em;
+  }
+
+  .mobile-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--forest-mid);
+    border: 1.5px solid var(--sage);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--sage-light);
+    text-transform: uppercase;
+  }
+
+  /* Page title still shows but smaller */
+  .topbar { padding: 14px 16px 0; }
+  .page-title { font-size: 22px; }
+
+  /* Page content — extra bottom padding to clear bottom nav */
+  .page-content { padding: 12px 16px 80px; }
+
+  /* ── Bottom navigation bar ── */
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 50;
+    background: var(--forest);
+    border-top: 1px solid rgba(255,255,255,0.1);
+    padding: 0;
+    height: 64px;
+    box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+  }
+
+  .bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    color: var(--sage-light);
+    padding: 8px 4px;
+    transition: color 0.2s, background 0.2s;
+    border-radius: 0;
+  }
+
+  .bottom-nav-item:hover  { color: var(--parchment); background: rgba(255,255,255,0.05); }
+  .bottom-nav-item.active { color: var(--parchment); }
+
+  /* Active indicator — dot above icon */
+  .bottom-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    width: 24px;
+    height: 2px;
+    background: var(--sage-light);
+    border-radius: 0 0 2px 2px;
+  }
+
+  .bottom-nav-item { position: relative; }
+
+  .bottom-nav-icon {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .bottom-nav-label {
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    line-height: 1;
+  }
 }

@@ -93,7 +93,25 @@ export async function getOrCreateUser(userId, displayName = 'Friend') {
 export async function updatePreferences(userId, preferences) {
   const user = await userRepository.findById(userId);
   if (!user) throw Object.assign(new Error('User not found'), { status: 404 });
-  user.preferences = { ...user.preferences, ...preferences };
+
+  // Update preferences fields
+  const { displayName, preferredMindfulnessDuration, ...restPrefs } = preferences;
+  user.preferences = { ...user.preferences, ...restPrefs };
+
+  // displayName lives in profile, not preferences
+  if (displayName !== undefined) {
+    user.profile = { ...user.profile, displayName };
+  }
+
+  // preferredMindfulnessDuration lives in memoryContext
+  if (preferredMindfulnessDuration !== undefined) {
+    user.memoryContext = {
+      ...user.memoryContext,
+      preferredMindfulnessDuration: Number(preferredMindfulnessDuration),
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   return userRepository.upsert(user);
 }
 

@@ -519,3 +519,26 @@
   color: var(--ink-faint);
   font-style: italic;
 }
+
+.followup-tts-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 4px;
+}
+
+/* reuse tts-toggle from ChatPanel.css */
+.tts-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--ink-faint);
+  padding: 4px 10px;
+  border-radius: 20px;
+  border: 1px solid var(--mist);
+  background: white;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  cursor: pointer;
+}
+.tts-toggle:hover { border-color: var(--sage); color: var(--forest); }
+.tts-toggle.active { background: var(--mist); color: var(--forest); border-color: var(--sage); }

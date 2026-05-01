@@ -10,6 +10,47 @@ import Settings from './pages/Settings.jsx';
 import { api } from './lib/api.js';
 import './App.css';
 
+// ── Dev login gate (local only) ───────────────────────────────────────────
+function DevLoginGate({ children }) {
+  const isLocalhost = window.location.hostname === 'localhost';
+  const hasUserId   = !!localStorage.getItem('serenity_user_id');
+  const [name,   setName]   = useState('');
+  const [userId, setUserId] = useState('');
+
+  if (!isLocalhost || hasUserId) return children;
+
+  function handleLogin(e) {
+    e.preventDefault();
+    if (!userId.trim()) return;
+    localStorage.setItem('serenity_user_id', userId.trim());
+    window.location.reload();
+  }
+
+  return (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', background:'var(--warm-white)', padding:'20px' }}>
+      <div style={{ background:'white', border:'2px solid var(--sage-light)', borderRadius:'var(--radius-lg)', padding:'36px 32px', maxWidth:'360px', width:'100%', display:'flex', flexDirection:'column', gap:'16px' }}>
+        <div style={{ textAlign:'center' }}>
+          <div style={{ fontSize:'32px' }}>🌿</div>
+          <h1 style={{ fontFamily:'var(--font-display)', fontSize:'26px', fontWeight:300, color:'var(--forest)', marginTop:'8px' }}>Welcome to Serenity</h1>
+          <p style={{ fontSize:'13px', color:'var(--ink-faint)', marginTop:'6px' }}>Local dev mode — enter a name and user ID to begin</p>
+        </div>
+        <form onSubmit={handleLogin} style={{ display:'flex', flexDirection:'column', gap:'12px' }}>
+          <input style={{ padding:'10px 14px', border:'1.5px solid var(--sage-light)', borderRadius:'var(--radius-md)', fontSize:'14px' }}
+            placeholder="Your name (e.g. Mia)" value={name} onChange={e => setName(e.target.value)} />
+          <input style={{ padding:'10px 14px', border:'1.5px solid var(--sage-light)', borderRadius:'var(--radius-md)', fontSize:'14px' }}
+            placeholder="User ID (e.g. user-001)" value={userId} onChange={e => setUserId(e.target.value)} required />
+          <button type="submit" style={{ padding:'10px', background:'var(--forest)', color:'var(--parchment)', borderRadius:'var(--radius-xl)', fontSize:'14px', fontWeight:500 }}>
+            Enter Serenity
+          </button>
+        </form>
+        <p style={{ fontSize:'11px', color:'var(--ink-faint)', textAlign:'center', lineHeight:1.5 }}>
+          On Azure, Microsoft login handles this automatically via Azure Static Web Apps authentication.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function localDateString(date) {
   const d = date || new Date();
   return d.getFullYear() + '-' +
@@ -130,7 +171,7 @@ export default function App() {
   useGlobalReminders(addToast);
 
   return (
-    <>
+    <DevLoginGate>
       <div className="global-toast-container">
         {toasts.map(t => (
           <NotificationToast
@@ -150,8 +191,9 @@ export default function App() {
           <Route path="habits"      element={<HabitBoard />} />
           <Route path="insight"     element={<Insight />} />
           <Route path="settings"    element={<Settings />} />
+          <Route path="settings"    element={<Settings />} />
         </Route>
       </Routes>
-    </>
+    </DevLoginGate>
   );
 }

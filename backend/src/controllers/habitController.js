@@ -56,3 +56,13 @@ export async function updateSchedule(req, res) {
   const habit = await habitService.updateSchedule(req.params.id, req.userId, req.body);
   res.json({ habit });
 }
+
+/**
+ * PATCH /api/habits/:id
+ * Body: { name?, category?, goal?, schedule? }
+ * Used by the "adapt habit" flow — updates in place instead of creating new.
+ */
+export async function updateHabit(req, res) {
+  const habit = await habitService.updateHabit(req.params.id, req.userId, req.body);
+  res.json({ habit });
+}
