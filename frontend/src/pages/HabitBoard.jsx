@@ -27,6 +27,30 @@ function scheduleLabel(schedule) {
 }
 
 
+// ── Adaptation suppression helpers ───────────────────────────────────────────
+// After a user accepts an adapted habit, suppress suggestions for that habit
+// for 3 days so the new schedule has time to establish itself.
+const SUPPRESS_DAYS = 3;
+
+function getSuppressKey(habitId) {
+  return 'serenity_suppress_adapt:' + habitId;
+}
+
+function suppressAdaptation(habitId) {
+  const until = Date.now() + SUPPRESS_DAYS * 86_400_000;
+  localStorage.setItem(getSuppressKey(habitId), String(until));
+}
+
+function isAdaptationSuppressed(habitId) {
+  const raw = localStorage.getItem(getSuppressKey(habitId));
+  if (!raw) return false;
+  return Date.now() < Number(raw);
+}
+
+function clearAdaptationSuppression(habitId) {
+  localStorage.removeItem(getSuppressKey(habitId));
+}
+
 // ── Habit Calendar ────────────────────────────────────────────────────────────
 const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
@@ -136,14 +160,19 @@ export default function HabitBoard() {
   }, [habits.length]);
 
   // ── Proactively load adaptation suggestions for repeatedly-missed habits ──
-  // Runs when habits load. If 2+ consecutive misses with no suggestion yet, fetch one.
+  // Uses a key built from all habit ids + their checkIn counts so it re-runs
+  // after an adapt (same length, different data) or after new misses are recorded.
+  const habitsMissKey = habits.map(h => h.id + ':' + getMissedDays(h)).join('|');
+
   useEffect(() => {
     if (!habits.length) return;
     habits.forEach(h => {
       const missed = getMissedDays(h);
       if (missed < 2) return;
-      if (altSuggestion[h.id]) return; // already have a suggestion
+      if (altSuggestion[h.id]) return; // already showing a suggestion for this habit
+      if (isAdaptationSuppressed(h.id)) return; // user recently accepted an adaptation — wait
 
+      clearAdaptationSuppression(h.id); // suppression expired — clear it so future cycles work cleanly
       api.habits.suggest('I keep missing "' + h.name + '". Suggest a gentler alternative or adjusted timing.')
         .then(r => {
           if (r?.suggestion?.confirmationMessage) {
@@ -155,7 +184,7 @@ export default function HabitBoard() {
                 category:      r.suggestion.category,
                 goal:          r.suggestion.goal,
                 suggestedTime: r.suggestion.suggestedTime,
-                time:          r.suggestion.suggestedTime,       // alias for AddHabitModal
+                time:          r.suggestion.suggestedTime,
                 dayOfWeek:     r.suggestion.suggestedDayOfWeek ?? null,
               }
             }));
@@ -163,7 +192,8 @@ export default function HabitBoard() {
         })
         .catch(() => {});
     });
-  }, [habits.length]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [habitsMissKey]);
 
   // ── Scroll to specific habit when arriving from notification ──
   useEffect(() => {
@@ -294,6 +324,7 @@ export default function HabitBoard() {
         });
         // Clear the adaptation suggestion for this habit
         setAltSuggestion(prev => { const n = {...prev}; delete n[updateHabitId]; return n; });
+        suppressAdaptation(updateHabitId); // suppress for 3 days so it doesn't re-suggest immediately
         setUpdateHabitId(null);
       } else {
         // CREATE flow — new habit

@@ -122,7 +122,7 @@
   line-height: 1;
 }
 
-.mood-trend-val { font-size: 28px; }
+.mood-trend-val { font-size: 22px; line-height: 1.2; }
 
 .stat-label {
   font-size: 11px;

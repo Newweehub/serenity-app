@@ -8,9 +8,9 @@ import AddHabitModal from '../components/ui/AddHabitModal.jsx';
 const PERIODS = ['week', 'month', 'year'];
 
 const TREND_DISPLAY = {
-  improving: { label: 'Improving', icon: '↑', color: 'var(--forest-light)' },
-  stable:    { label: 'Stable',    icon: '→', color: 'var(--amber-warm)'   },
-  declining: { label: 'Declining', icon: '↓', color: 'var(--blush)'        },
+  improving: { label: 'Improving', icon: '📈', color: 'var(--forest-light)' },
+  stable:    { label: 'Stable',    icon: '〰️',  color: 'var(--amber-warm)'  },
+  declining: { label: 'Declining', icon: '📉', color: 'var(--blush)'        },
 };
 
 export default function Insight() {

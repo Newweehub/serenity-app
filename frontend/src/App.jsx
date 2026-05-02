@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Layout from './components/layout/Layout.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Journal from './pages/Journal.jsx';
@@ -8,6 +8,7 @@ import HabitBoard from './pages/HabitBoard.jsx';
 import Insight from './pages/Insight.jsx';
 import Settings from './pages/Settings.jsx';
 import { api } from './lib/api.js';
+import { useTTSContext } from './context/TTSContext.jsx';
 import './App.css';
 
 // ── Dev login gate (local only) ───────────────────────────────────────────
@@ -154,6 +155,19 @@ function useGlobalReminders(onNotify) {
 }
 
 // ── App ───────────────────────────────────────────────────────────────────
+// ── Stop TTS on page navigation ──────────────────────────────────────────────
+function RouteChangeStopper() {
+  const location = useLocation();
+  const { stop, speaking } = useTTSContext();
+
+  useEffect(() => {
+    if (speaking) stop();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.pathname]);
+
+  return null;
+}
+
 export default function App() {
   const [toasts, setToasts] = useState([]);
 
@@ -182,6 +196,7 @@ export default function App() {
           />
         ))}
       </div>
+      <RouteChangeStopper />
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Navigate to="/dashboard" replace />} />
@@ -190,7 +205,6 @@ export default function App() {
           <Route path="mindfulness" element={<Mindfulness />} />
           <Route path="habits"      element={<HabitBoard />} />
           <Route path="insight"     element={<Insight />} />
-          <Route path="settings"    element={<Settings />} />
           <Route path="settings"    element={<Settings />} />
         </Route>
       </Routes>

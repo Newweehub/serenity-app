@@ -110,8 +110,8 @@ export default function Dashboard() {
         </div>
         <div className="stat-card" onClick={() => navigate('/insight')}>
           <span className="stat-value mood-trend-val">
-            {memory.moodTrend === 'improving' ? '↑'
-              : memory.moodTrend === 'declining' ? '↓' : '→'}
+            {memory.moodTrend === 'improving' ? '📈'
+              : memory.moodTrend === 'declining' ? '📉' : '〰️'}
           </span>
           <span className="stat-label">Mood trend</span>
           <span className="stat-unit">{memory.moodTrend ?? 'stable'}</span>
@@ -141,11 +141,17 @@ export default function Dashboard() {
               const dw = h.schedule?.dayOfWeek;
               return dw === null || dw === undefined || Number(dw) === todayDay;
             });
-            return todaysHabits.length === 0 ? (
+            // Sort by targetTime so 08:00 habits appear before 22:00
+            const sortedHabits = [...todaysHabits].sort((a, b) => {
+              const ta = a.schedule?.targetTime ?? '99:99';
+              const tb = b.schedule?.targetTime ?? '99:99';
+              return ta.localeCompare(tb);
+            });
+            return sortedHabits.length === 0 ? (
               <p className="dash-empty">No habits scheduled for today. <button className="inline-link" onClick={() => navigate('/habits')}>Add one →</button></p>
             ) : (
               <ul className="focus-habit-list">
-                {todaysHabits.slice(0, 5).map(h => {
+                {sortedHabits.slice(0, 5).map(h => {
                   const done = h.checkIns?.some(c => c.date === today && c.completed);
                   return (
                     <li key={h.id} className={`focus-habit-item ${done ? 'done' : ''}`}

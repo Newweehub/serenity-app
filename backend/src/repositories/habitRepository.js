@@ -26,7 +26,7 @@ export const habitRepository = {
       query: `
         SELECT * FROM c
         WHERE c.userId = @userId AND c.status = 'active'
-        ORDER BY c.createdAt ASC
+        ORDER BY c.createdAt DESC
       `,
       parameters: [{ name: '@userId', value: userId }],
     }).fetchAll();
@@ -35,7 +35,7 @@ export const habitRepository = {
 
   async findAllByUser(userId) {
     const { resources } = await containers.habits().items.query({
-      query: `SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt ASC`,
+      query: `SELECT * FROM c WHERE c.userId = @userId ORDER BY c.createdAt DESC`,
       parameters: [{ name: '@userId', value: userId }],
     }).fetchAll();
     return resources;
