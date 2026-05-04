@@ -4,7 +4,8 @@ import * as userService from '../services/userService.js';
  * GET /api/users/me
  */
 export async function getMe(req, res) {
-  const user = await userService.getOrCreateUser(req.userId);
+  // Pass displayName from header so first-time user creation uses the login name
+  const user = await userService.getOrCreateUser(req.userId, req.displayName || 'Friend');
   res.json({ user });
 }
 

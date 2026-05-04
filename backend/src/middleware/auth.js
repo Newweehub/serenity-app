@@ -18,7 +18,8 @@ export function authMiddleware(req, res, next) {
     });
   }
 
-  // Attach userId to request so controllers can use it
+  // Attach userId and displayName to request
   req.userId = userId;
+  req.displayName = req.headers['x-display-name'] || '';
   next();
 }

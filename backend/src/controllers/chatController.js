@@ -55,7 +55,7 @@ export async function journalChat(req, res) {
 
   const response = await openaiClient.chat.completions.create({
     model: MODEL,
-    max_tokens: 400,
+    max_tokens: 200,
     temperature: 0.7,
     messages,
   });

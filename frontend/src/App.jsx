@@ -24,6 +24,10 @@ function DevLoginGate({ children }) {
     e.preventDefault();
     if (!userId.trim()) return;
     localStorage.setItem('serenity_user_id', userId.trim());
+    // Save display name so the backend can use it when creating the user profile
+    if (name.trim()) {
+      localStorage.setItem('serenity_display_name', name.trim());
+    }
     window.location.reload();
   }
 

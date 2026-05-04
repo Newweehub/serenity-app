@@ -7,13 +7,21 @@ function getUserId() {
   return localStorage.getItem('serenity_user_id') || 'dev-user-001';
 }
 
+function getDisplayName() {
+  return localStorage.getItem('serenity_display_name') || '';
+}
+
 async function request(method, path, body) {
+  const headers = {
+    'Content-Type': 'application/json',
+    'x-user-id': getUserId(),
+  };
+  const displayName = getDisplayName();
+  if (displayName) headers['x-display-name'] = displayName;
+
   const res = await fetch(`${BASE}${path}`, {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-user-id': getUserId(),
-    },
+    headers,
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 

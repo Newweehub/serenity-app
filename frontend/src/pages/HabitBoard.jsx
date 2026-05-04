@@ -6,6 +6,7 @@ import ConfirmModal from '../components/ui/ConfirmModal.jsx';
 import AddHabitModal, { dayLabel, formatTime12, DAYS } from '../components/ui/AddHabitModal.jsx';
 import { EXERCISES, findExercise } from '../lib/exercises.js';
 import './HabitBoard.css';
+import MicButton from '../components/ui/MicButton.jsx';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const CATEGORY_ICONS = {
@@ -454,6 +455,11 @@ export default function HabitBoard() {
           <div className="add-section">
             <h4 className="add-section-title">✦ Ask Serenity to suggest one</h4>
             <form className="suggest-form" onSubmit={handleAISuggest}>
+              <MicButton
+                onResult={spoken => setSuggestInput(prev => (prev ? prev + ' ' : '') + spoken.trim())}
+                size="sm"
+                title="Speak your goal"
+              />
               <input className="suggest-input" value={suggestInput}
                 onChange={e => setSuggestInput(e.target.value)}
                 placeholder="e.g. I want to sleep better, reduce anxiety…" />

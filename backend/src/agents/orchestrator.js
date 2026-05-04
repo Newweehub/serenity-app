@@ -51,7 +51,7 @@ export async function orchestrate({ message, history = [], context }) {
 
   const response = await openaiClient.chat.completions.create({
     model: MODEL,
-    max_tokens: 600,
+    max_tokens: 200,
     temperature: 0.7,
     messages,
   });
