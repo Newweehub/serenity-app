@@ -61,5 +61,5 @@ jobs:
         with:
           app-name: 'serenity-backend'
           slot-name: 'Production'
-          package: .
+          package: ./backend
           
