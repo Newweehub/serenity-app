@@ -2,7 +2,7 @@
   "routes": [
     {
       "route": "/api/*",
-      "allowedRoles": ["authenticated"]
+      "rewrite": "https://serenity-backend-c4cxeedyfahpfpac.southeastasia-01.azurewebsites.net/api/*"
     },
     {
       "route": "/.auth/login/aad",
@@ -25,9 +25,6 @@
   },
   "navigationFallback": {
     "rewrite": "/index.html",
-    "exclude": ["/api/*", "*.{css,js,png,jpg,svg,ico}"]
-  },
-  "globalHeaders": {
-    "X-Content-Type-Options": "nosniff"
+    "exclude": ["/api/*","*.{css,js,png,jpg,svg,ico}"]
   }
 }

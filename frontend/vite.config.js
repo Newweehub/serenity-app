@@ -7,7 +7,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: 'https://serenity-backend-c4cxeedyfahpfpac.southeastasia-01.azurewebsites.net', //'http://localhost:3001'
         changeOrigin: true,
       },
     },
