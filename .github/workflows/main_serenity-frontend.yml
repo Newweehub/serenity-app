@@ -26,7 +26,7 @@ jobs:
       - name: Install and build
         run: |
           cd frontend
-          npm ci
+          npm install
           npm run build
 
       # Copy server.js into dist/ so everything is in one folder
