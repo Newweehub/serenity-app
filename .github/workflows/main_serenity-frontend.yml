@@ -27,7 +27,7 @@ jobs:
       - name: Install and build
         run: |
           cd frontend
-          npm ci
+          npm install
           npm run build
 
       - name: Prepare deployment package
@@ -39,7 +39,7 @@ jobs:
       - name: Install production dependencies into dist
         run: |
           cd frontend/dist
-          npm ci --omit=dev
+          npm install --omit=dev
 
       - name: Zip the deployment package
         run: |
