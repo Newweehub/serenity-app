@@ -32,19 +32,20 @@ jobs:
 
       - name: Prepare deployment package
         run: |
-          cp frontend/server.js   frontend/dist/server.js
-          cp frontend/package.json frontend/dist/package.json
+          # Copy server files INTO dist/ so it's one flat deployable folder
+          cp frontend/server.js        frontend/dist/server.js
+          cp frontend/package.json     frontend/dist/package.json
           cp frontend/package-lock.json frontend/dist/package-lock.json
 
-      - name: Install production dependencies into dist
+      - name: Install production deps into dist
         run: |
           cd frontend/dist
           npm install --omit=dev
 
-      - name: Zip the deployment package
+      - name: Zip ONLY the dist folder
         run: |
           cd frontend/dist
-          zip -r ../../deploy.zip .
+          zip -r ../../deploy.zip .   # zip contents of dist/, not dist/ itself
 
       - name: Login to Azure
         uses: azure/login@v2
