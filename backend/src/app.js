@@ -30,6 +30,23 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use((req, res, next) => {
+  const allowed = [
+    'http://localhost:5173',
+    'https://serenity-frontend-a3c5ewguhth7gfck.southeastasia-01.azurewebsites.net',
+  ];
+  const origin = req.headers.origin;
+  if (allowed.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers',
+      'Content-Type,x-user-id,x-display-name,x-ms-client-principal-id');
+  }
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
+
 // ── Health check (no auth) ─────────────────────────────────────────────────
 app.get('/health', (_req, res) => res.json({ status: 'ok', app: 'serenity', version: '1.0.0', timestamp: new Date().toISOString() }));
 
