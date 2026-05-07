@@ -13,14 +13,17 @@ const staticDir  = __dirname;
 app.use('/api', createProxyMiddleware({
   target: BACKEND,
   changeOrigin: true,
-  pathRewrite: { '^/api': '' },  // strip /api → backend re-adds it via its own mount
+  pathRewrite: { '^/api': '' },
   on: {
+    proxyReq: (proxyReq, req) => {
+      // Forward the user id header from the original request
+      const userId = req.headers['x-user-id'];
+      if (userId) proxyReq.setHeader('x-user-id', userId);
+      console.log(`Proxy: ${req.method} ${req.path} → ${BACKEND}${proxyReq.path}`);
+    },
     error: (err, req, res) => {
       console.error('Proxy error:', err.message);
       res.status(502).json({ message: 'Backend unavailable' });
-    },
-    proxyReq: (proxyReq, req) => {
-      console.log(`Proxy: ${req.method} ${req.path} → ${BACKEND}${proxyReq.path}`);
     },
   },
 }));
