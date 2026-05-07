@@ -3,8 +3,42 @@
 
 const BASE = '/api';
 
+// Cache the user info so we don't call /.auth/me on every request
+let authCache = null;
+
+async function getAuthInfo() {
+  if (authCache) return authCache;
+  try {
+    const res = await fetch('/.auth/me');
+    if (!res.ok) return null;
+    const data = await res.json();
+    authCache = data[0] ?? null; // first identity provider
+    return authCache;
+  } catch {
+    return null;
+  }
+}
+
 function getUserId() {
+  // On Azure: read from localStorage after /.auth/me populates it
+  // On localhost: read from localStorage (set by DevLoginGate)
   return localStorage.getItem('serenity_user_id') || 'dev-user-001';
+}
+
+// Call this once on app load to populate localStorage from EasyAuth
+export async function initAuthFromEasyAuth() {
+  if (window.location.hostname === 'localhost') return;
+  const auth = await getAuthInfo();
+  if (auth?.userId) {
+    localStorage.setItem('serenity_user_id', auth.userId);
+  }
+  if (auth?.userDetails) {
+    // userDetails is usually the email or display name
+    const name = auth.userDetails.split('@')[0]; // use part before @
+    if (!localStorage.getItem('serenity_display_name')) {
+      localStorage.setItem('serenity_display_name', name);
+    }
+  }
 }
 
 function getDisplayName() {
