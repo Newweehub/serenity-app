@@ -49,7 +49,7 @@ jobs:
         id: deploy
         continue-on-error: true
         with:
-          app-name: 'serenity-backend'
+          app-name: 'serenity-backend-c4cxeedyfahpfpac'
           slot-name: 'Production'
           package: backend-deploy.zip
 
@@ -63,7 +63,7 @@ jobs:
         if: steps.deploy.outcome == 'failure'
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'serenity-backend'
+          app-name: 'serenity-backend-c4cxeedyfahpfpac'
           slot-name: 'Production'
           package: backend-deploy.zip
           
