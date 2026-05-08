@@ -22,7 +22,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '20.x'
+          node-version: '22.x'
 
       - name: Zip the backend package (no node_modules)
         run: |
@@ -37,9 +37,9 @@ jobs:
       - name: Login to Azure
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_BACKEND }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_BACKEND }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_BACKEND }}
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_6367EB8B8A5A4651B4A90223CF7125FF }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_C226622D69A84ECBAB6A4129268DE734 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_11AC1C7A2DEC4FBA8FECCA86D43F027B }}
 
       - name: Wait for App Service to be ready
         run: sleep 60
