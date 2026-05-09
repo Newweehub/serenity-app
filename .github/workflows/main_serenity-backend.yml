@@ -64,5 +64,5 @@ jobs:
         with:
           app-name: 'serenity-backend'   # ← exact name from old working version
           slot-name: 'Production'
-          package: .                      # ← downloaded artifact is already ./backend contents
+          package: ./                      # ← downloaded artifact is already ./backend contents
           
