@@ -23,11 +23,6 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: Install dependencies
-        run: |
-          cd backend
-          npm install
-
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
@@ -49,6 +44,13 @@ jobs:
         with:
           name: node-app
 
+      - name: Check artifact size and contents
+        run: |
+          echo "=== Contents ==="
+          ls -la
+          echo "=== Size ==="
+          du -sh .
+
       - name: Login to Azure
         uses: azure/login@v2
         with:
@@ -64,5 +66,5 @@ jobs:
         with:
           app-name: 'serenity-backend'   # ← exact name from old working version
           slot-name: 'Production'
-          package: ./                      # ← downloaded artifact is already ./backend contents
+          package: .                      # ← downloaded artifact is already ./backend contents
           
