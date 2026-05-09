@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const app     = express();
-const PORT    = process.env.PORT || 3001;
+const PORT    = process.env.PORT || 8080;
 const BACKEND = process.env.BACKEND_URL || 'https://serenity-backend-c4cxeedyfahpfpac.southeastasia-01.azurewebsites.net';
 
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
@@ -13,13 +13,11 @@ const staticDir  = __dirname;
 app.use('/api', createProxyMiddleware({
   target: BACKEND,
   changeOrigin: true,
-  pathRewrite: { '^/api': '' },
+  // Don't rewrite — forward /api/journal as-is to backend
+  // Frontend: /api/journal → Backend: /api/journal ✅
   on: {
     proxyReq: (proxyReq, req) => {
-      // Forward the user id header from the original request
-      const userId = req.headers['x-user-id'];
-      if (userId) proxyReq.setHeader('x-user-id', userId);
-      console.log(`Proxy: ${req.method} ${req.path} → ${BACKEND}${proxyReq.path}`);
+      console.log(`Proxy: ${req.method} /api${req.path} → ${BACKEND}/api${req.path}`);
     },
     error: (err, req, res) => {
       console.error('Proxy error:', err.message);
