@@ -20,7 +20,13 @@ async function getAuthInfo() {
 }
 
 function getUserId() {
-  return localStorage.getItem('serenity_user_id') || 'dev-user-001';
+  const id = localStorage.getItem('serenity_user_id');
+  if (!id && window.location.hostname !== 'localhost') {
+    // Force re-auth if running on Azure but no userId was resolved
+    window.location.href = '/.auth/login/aad';
+    throw new Error('Not authenticated');
+  }
+  return id || 'dev-user-001';  // only used on localhost now
 }
 
 export async function initAuthFromEasyAuth() {
