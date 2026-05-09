@@ -10,9 +10,10 @@ const BACKEND = process.env.BACKEND_URL || 'https://serenity-backend-c4cxeedyfah
 const __dirname  = path.dirname(fileURLToPath(import.meta.url));
 const staticDir  = __dirname;
 
-app.use('/api', createProxyMiddleware({
+app.use('/', createProxyMiddleware({
   target: BACKEND,
   changeOrigin: true,
+  filter: (pathname) => pathname.startsWith('/api'), // only proxy /api/* requests
   on: {
     proxyReq: (proxyReq, req) => {
       // Explicitly forward the user identity headers
