@@ -20,24 +20,39 @@ async function getAuthInfo() {
 }
 
 function getUserId() {
-  // On Azure: read from localStorage after /.auth/me populates it
-  // On localhost: read from localStorage (set by DevLoginGate)
   return localStorage.getItem('serenity_user_id') || 'dev-user-001';
 }
 
-// Call this once on app load to populate localStorage from EasyAuth
 export async function initAuthFromEasyAuth() {
   if (window.location.hostname === 'localhost') return;
-  const auth = await getAuthInfo();
-  if (auth?.userId) {
-    localStorage.setItem('serenity_user_id', auth.userId);
-  }
-  if (auth?.userDetails) {
-    // userDetails is usually the email or display name
-    const name = auth.userDetails.split('@')[0]; // use part before @
-    if (!localStorage.getItem('serenity_display_name')) {
-      localStorage.setItem('serenity_display_name', name);
+  
+  try {
+    const res = await fetch('/.auth/me');
+    if (!res.ok) return;
+    
+    const data = await res.json();
+    const identity = data[0];
+    
+    if (!identity) return;
+    
+    // Azure AD gives userId as the object ID (OID claim)
+    const oidClaim = identity.user_claims?.find(c => c.typ === 'http://schemas.microsoft.com/identity/claims/objectidentifier');
+    const userId = oidClaim?.val ?? identity.user_id ?? identity.userId;
+    
+    // Get display name from claims
+    const nameClaim = identity.user_claims?.find(c => c.typ === 'name');
+    const emailClaim = identity.user_claims?.find(c => c.typ === 'preferred_username' || c.typ === 'email');
+    const displayName = nameClaim?.val ?? emailClaim?.val?.split('@')[0] ?? 'User';
+    
+    if (userId) {
+      localStorage.setItem('serenity_user_id', userId);
+      console.log('Auth: user identified as', userId);
     }
+    if (displayName) {
+      localStorage.setItem('serenity_display_name', displayName);
+    }
+  } catch (err) {
+    console.warn('EasyAuth not available:', err.message);
   }
 }
 
