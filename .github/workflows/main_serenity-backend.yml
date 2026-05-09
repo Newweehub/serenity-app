@@ -14,7 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-
     steps:
       - uses: actions/checkout@v4
 
@@ -23,14 +22,17 @@ jobs:
         with:
           node-version: '22.x'
 
+      - name: npm install, build, and test
+        run: |
+          cd backend
+          npm install
+          npm run build --if-present
+
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: |
-            backend/src
-            backend/package.json
-            backend/package-lock.json
+          path: .
 
   deploy:
     runs-on: ubuntu-latest
@@ -38,17 +40,11 @@ jobs:
     permissions:
       id-token: write
       contents: read
-
     steps:
-      - name: Download artifact
+      - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: node-app
-
-      - name: Create deployment zip
-        run: |
-          zip -r deploy.zip .
-          echo "Zip size: $(du -sh deploy.zip)"
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -57,46 +53,11 @@ jobs:
           tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_4CAB6A7A99BC405B8F8966C147D06124 }}
           subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_30E141ACF024486CA837B7F438F684C6 }}
 
-      - name: Get resource group
-        id: rg
-        run: |
-          RG=$(az webapp show --name serenity-app --query resourceGroup -o tsv)
-          echo "name=$RG" >> $GITHUB_OUTPUT
-          echo "Resource group: $RG"
-
-      - name: Stop App Service before deploy
-        run: |
-          az webapp stop \
-            --name serenity-backend \
-            --resource-group ${{ steps.rg.outputs.name }}
-
-      - name: Wait for stop
-        run: sleep 20
-
-      - name: Deploy using Azure CLI
-        run: |
-          az webapp deploy \
-            --name serenity-backend \
-            --resource-group ${{ steps.rg.outputs.name }} \
-            --src-path deploy.zip \
-            --type zip \
-            --async true
-          echo "Deploy initiated"
-
-      - name: Start App Service
-        run: |
-          az webapp start \
-            --name serenity-backend \
-            --resource-group ${{ steps.rg.outputs.name }}
-
-      - name: Wait for startup
-        run: sleep 30
-
-      - name: Verify deployment
-        run: |
-          STATUS=$(az webapp show \
-            --name serenity-backend \
-            --resource-group ${{ steps.rg.outputs.name }} \
-            --query state -o tsv)
-          echo "App Service state: $STATUS"
+      - name: Deploy to Azure Web App
+        id: deploy-to-webapp
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'serenity-backend'
+          slot-name: 'Production'
+          package: ./backend
           
