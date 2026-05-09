@@ -13,11 +13,14 @@ const staticDir  = __dirname;
 app.use('/api', createProxyMiddleware({
   target: BACKEND,
   changeOrigin: true,
-  // Don't rewrite — forward /api/journal as-is to backend
-  // Frontend: /api/journal → Backend: /api/journal ✅
   on: {
     proxyReq: (proxyReq, req) => {
-      console.log(`Proxy: ${req.method} /api${req.path} → ${BACKEND}/api${req.path}`);
+      // Explicitly forward the user identity headers
+      const userId = req.headers['x-user-id'];
+      const displayName = req.headers['x-display-name'];
+      if (userId) proxyReq.setHeader('x-user-id', userId);
+      if (displayName) proxyReq.setHeader('x-display-name', displayName);
+      console.log(`Proxy: ${req.method} /api${req.path} → ${BACKEND}/api${req.path} | user: ${userId}`);
     },
     error: (err, req, res) => {
       console.error('Proxy error:', err.message);
