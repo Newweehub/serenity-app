@@ -60,7 +60,7 @@ jobs:
       - name: Get resource group
         id: rg
         run: |
-          RG=$(az webapp show --name serenity-backend --query resourceGroup -o tsv)
+          RG=$(az webapp show --name serenity-app --query resourceGroup -o tsv)
           echo "name=$RG" >> $GITHUB_OUTPUT
           echo "Resource group: $RG"
 
