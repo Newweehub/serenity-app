@@ -31,28 +31,31 @@ function getUserId() {
 
 export async function initAuthFromEasyAuth() {
   if (window.location.hostname === 'localhost') return;
-  
+
   try {
     const res = await fetch('/.auth/me');
     if (!res.ok) return;
-    
+
     const data = await res.json();
     const identity = data[0];
-    
     if (!identity) return;
-    
-    // Azure AD gives userId as the object ID (OID claim)
-    const oidClaim = identity.user_claims?.find(c => c.typ === 'http://schemas.microsoft.com/identity/claims/objectidentifier');
-    const userId = oidClaim?.val ?? identity.user_id ?? identity.userId;
-    
-    // Get display name from claims
-    const nameClaim = identity.user_claims?.find(c => c.typ === 'name');
-    const emailClaim = identity.user_claims?.find(c => c.typ === 'preferred_username' || c.typ === 'email');
-    const displayName = nameClaim?.val ?? emailClaim?.val?.split('@')[0] ?? 'User';
-    
+
+    // Azure Easy Auth returns userId directly as the OID
+    const userId = identity.userId;
+
+    // Get display name — try name claim first, then email prefix
+    const claims = identity.user_claims || [];
+    const get = (typ) => claims.find(c => c.typ === typ)?.val;
+
+    const displayName =
+      get('name') ||
+      get('preferred_username')?.split('@')[0] ||
+      get('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name') ||
+      'User';
+
     if (userId) {
       localStorage.setItem('serenity_user_id', userId);
-      console.log('Auth: user identified as', userId);
+      console.log('EasyAuth: userId =', userId);
     }
     if (displayName) {
       localStorage.setItem('serenity_display_name', displayName);

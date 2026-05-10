@@ -3,60 +3,60 @@ import { createProxyMiddleware } from 'http-proxy-middleware';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-const app    = express();
-const PORT   = process.env.PORT || 8080;
-const BACKEND = process.env.BACKEND_URL || 'https://serenity-backend-c4cxeedyfahpfpac.southeastasia-01.azurewebsites.net';
+const app     = express();
+const PORT    = process.env.PORT || 8080;
+const BACKEND = process.env.BACKEND_URL ||
+  'https://serenity-backend-c4cxeedyfahpfpac.southeastasia-01.azurewebsites.net';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// 1. Proxy /api/* to backend — must come BEFORE the auth check
+// ── 1. Always pass /.auth/* through untouched ─────────────────────────────
+// Easy Auth handles /.auth/login, /.auth/logout, /.auth/me, /.auth/callback
+// Do NOT proxy or block these — Azure intercepts them before Node sees them
+// This app.use is just a safety no-op so nothing below accidentally catches them
+app.use('/.auth', (req, res, next) => next());
+
+// ── 2. Proxy /api/* to backend ────────────────────────────────────────────
 app.use(
+  '/api',
   createProxyMiddleware({
     target: BACKEND,
     changeOrigin: true,
-    pathFilter: '/api',            // v3 syntax (fix from earlier)
     on: {
       proxyReq: (proxyReq, req) => {
-        // Forward identity headers to backend
-        const principalId = req.headers['x-ms-client-principal-id'];
-        const userId      = req.headers['x-user-id'];
-        const displayName = req.headers['x-display-name'];
-        if (principalId) proxyReq.setHeader('x-ms-client-principal-id', principalId);
-        if (userId)      proxyReq.setHeader('x-user-id', userId);
-        if (displayName) proxyReq.setHeader('x-display-name', displayName);
+        // Azure injects x-ms-client-principal as a base64 token on the REQUEST
+        // that hits this Node server (when Easy Auth is in "Require auth" mode).
+        // Forward every x-ms-* header the platform injected.
+        const msHeaders = [
+          'x-ms-client-principal-id',
+          'x-ms-client-principal-name',
+          'x-ms-client-principal',
+          'x-ms-token-aad-id-token',
+        ];
+        msHeaders.forEach(h => {
+          if (req.headers[h]) proxyReq.setHeader(h, req.headers[h]);
+        });
+
+        // Also forward our own app headers
+        if (req.headers['x-user-id'])     proxyReq.setHeader('x-user-id', req.headers['x-user-id']);
+        if (req.headers['x-display-name']) proxyReq.setHeader('x-display-name', req.headers['x-display-name']);
+
+        console.log(`→ ${req.method} /api${req.path} | principal: ${req.headers['x-ms-client-principal-id'] || 'MISSING'}`);
       },
       error: (err, req, res) => {
+        console.error('Proxy error:', err.message);
         res.status(502).json({ message: 'Backend unavailable' });
       },
     },
   })
 );
 
-// 2. Auth check — redirect to Microsoft login if no session
-//    This only runs for non-/api requests (proxy above handles /api)
-app.use((req, res, next) => {
-  // /.auth/* paths must always pass through (login/logout/callback/me)
-  if (req.path.startsWith('/.auth')) return next();
-
-  // Check for Easy Auth session cookie (set by Azure after login)
-  const hasSession = req.headers['x-ms-client-principal-id'] ||
-                     req.headers['x-ms-client-principal'];
-
-  if (!hasSession) {
-    // Redirect to Microsoft login, come back to the original path
-    const returnUrl = encodeURIComponent(req.originalUrl);
-    return res.redirect(`/.auth/login/aad?post_login_redirect_uri=${returnUrl}`);
-  }
-
-  next();
-});
-
-// 3. Static files
+// ── 3. Static files ───────────────────────────────────────────────────────
 app.use(express.static(__dirname));
 
-// 4. SPA fallback
+// ── 4. SPA fallback ───────────────────────────────────────────────────────
 app.get('*', (_, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-app.listen(PORT, () => console.log(`Frontend running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Frontend on port ${PORT}`));
