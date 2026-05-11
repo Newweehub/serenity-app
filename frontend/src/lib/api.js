@@ -19,14 +19,12 @@ async function getAuthInfo() {
   }
 }
 
+// No redirect here — Easy Auth handles unauthenticated users at the platform level.
+// The redirect guard was causing a race condition: getUserId() ran before
+// initAuthFromEasyAuth() finished populating localStorage, triggering an
+// infinite login loop (visible as cancelled 'aad' requests in DevTools).
 function getUserId() {
-  const id = localStorage.getItem('serenity_user_id');
-  if (!id && window.location.hostname !== 'localhost') {
-    // Force re-auth if running on Azure but no userId was resolved
-    window.location.href = '/.auth/login/aad';
-    throw new Error('Not authenticated');
-  }
-  return id || 'dev-user-001';  // only used on localhost now
+  return localStorage.getItem('serenity_user_id') || 'dev-user-001';
 }
 
 export async function initAuthFromEasyAuth() {
@@ -97,9 +95,9 @@ const patch = (path, body) => request('PATCH', path, body);
 // ── Chat ────────────────────────────────────────────────────────────────────
 export const api = {
   chat: {
-    send:       (message, history)  => post('/chat', { message, history }),
+    send:        (message, history) => post('/chat', { message, history }),
     sendJournal: (message, history) => post('/chat/journal', { message, history }),
-    endSession: (history)           => post('/chat', { message: '', history, endSession: true }),
+    endSession:  (history)          => post('/chat', { message: '', history, endSession: true }),
   },
 
   // ── Journal ───────────────────────────────────────────────────────────────
@@ -112,13 +110,13 @@ export const api = {
 
   // ── Habits ────────────────────────────────────────────────────────────────
   habits: {
-    list:         ()              => get('/habits'),
-    create:       (data)          => post('/habits', data),
-    checkIn:      (id, data)      => post(`/habits/${id}/checkin`, data),
-    updateStatus:   (id, status)  => patch(`/habits/${id}/status`, { status }),
-    updateSchedule: (id, data)    => patch(`/habits/${id}/schedule`, data),
-    update:         (id, data)    => patch(`/habits/${id}`, data),
-    suggest:      (message)       => post('/habits/suggest', { message }),
+    list:           ()           => get('/habits'),
+    create:         (data)       => post('/habits', data),
+    checkIn:        (id, data)   => post(`/habits/${id}/checkin`, data),
+    updateStatus:   (id, status) => patch(`/habits/${id}/status`, { status }),
+    updateSchedule: (id, data)   => patch(`/habits/${id}/schedule`, data),
+    update:         (id, data)   => patch(`/habits/${id}`, data),
+    suggest:        (message)    => post('/habits/suggest', { message }),
   },
 
   // ── Insights ──────────────────────────────────────────────────────────────
@@ -133,7 +131,7 @@ export const api = {
 
   // ── User ──────────────────────────────────────────────────────────────────
   user: {
-    me:                () =>            get('/users/me'),
-    updatePreferences: (prefs) =>       patch('/users/me/preferences', prefs),
+    me:                () =>        get('/users/me'),
+    updatePreferences: (prefs) =>   patch('/users/me/preferences', prefs),
   },
 };
