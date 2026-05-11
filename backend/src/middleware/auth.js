@@ -1,20 +1,22 @@
 export function authMiddleware(req, res, next) {
-  // Primary: Azure injects this after Easy Auth validates the session
+  console.log('[auth] headers received:', {
+    principalId:   req.headers['x-ms-client-principal-id'],
+    principal:     req.headers['x-ms-client-principal'] ? 'present' : 'missing',
+    userId:        req.headers['x-user-id'],
+    displayName:   req.headers['x-display-name'],
+  });
+
   let userId = req.headers['x-ms-client-principal-id'];
 
-  // Secondary: decode the full principal token if the ID header is missing
   if (!userId && req.headers['x-ms-client-principal']) {
     try {
       const principal = JSON.parse(
         Buffer.from(req.headers['x-ms-client-principal'], 'base64').toString('utf8')
       );
       userId = principal.userId || principal.user_id;
-    } catch {
-      // malformed token — fall through to x-user-id
-    }
+    } catch { /* malformed */ }
   }
 
-  // Fallback: our own header (set by frontend api.js from localStorage)
   if (!userId) userId = req.headers['x-user-id'];
 
   if (!userId) {
