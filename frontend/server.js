@@ -16,6 +16,18 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // This app.use is just a safety no-op so nothing below accidentally catches them
 app.use('/.auth', (req, res, next) => next());
 
+// Temporary debug — remove after confirming proxy works
+app.get('/api/debug-proxy', (req, res) => {
+  res.json({
+    message: 'Proxy reached Node successfully',
+    headers: {
+      principalId:   req.headers['x-ms-client-principal-id'] || 'MISSING',
+      principal:     req.headers['x-ms-client-principal'] ? 'present' : 'MISSING',
+      cookie:        req.headers.cookie ? 'present' : 'MISSING',
+    }
+  });
+});
+
 // ── 2. Proxy /api/* to backend ────────────────────────────────────────────
 app.use(
   '/api',
