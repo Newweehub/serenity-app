@@ -69,7 +69,10 @@ app.get('/api/debug-proxy', async (req, res) => {
 });
 
 // ── Inject identity then proxy /api/* to backend ──────────────────────────
-app.use('/api', async (req, res, next) => {
+app.use(async (req, res, next) => {
+  // Only proxy /api/* requests
+  if (!req.path.startsWith('/api')) return next();
+
   const identity = await resolveUserId(req);
 
   if (identity) {
@@ -84,9 +87,10 @@ app.use('/api', async (req, res, next) => {
 }, createProxyMiddleware({
   target: BACKEND,
   changeOrigin: true,
+  // pathFilter keeps the full path including /api
+  pathFilter: '/api',
   on: {
     proxyReq: (proxyReq, req) => {
-      // Explicitly set the headers on the outgoing request to the backend
       if (req.headers['x-user-id'])
         proxyReq.setHeader('x-user-id', req.headers['x-user-id']);
       if (req.headers['x-display-name'])
