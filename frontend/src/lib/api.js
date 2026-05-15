@@ -45,11 +45,13 @@ export async function initAuthFromEasyAuth() {
     const claims = identity.user_claims || [];
     const get = (typ) => claims.find(c => c.typ === typ)?.val;
 
-    const displayName =
+    const rawDisplayName =
       get('name') ||
-      get('preferred_username')?.split('@')[0] ||
+      get('preferred_username') ||
       get('http://schemas.xmlsoap.org/ws/2005/05/identity/claims/name') ||
       'User';
+
+    const displayName = rawDisplayName.split('@')[0].trim();
 
     if (userId) {
       localStorage.setItem('serenity_user_id', userId);
