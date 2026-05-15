@@ -13,4 +13,5 @@ export const containers = {
   users:    () => db.container(config.cosmos.containers.users),
   journals: () => db.container(config.cosmos.containers.journals),
   habits:   () => db.container(config.cosmos.containers.habits),
+  pushSubscriptions: () => db.container('pushSubscriptions'),
 };

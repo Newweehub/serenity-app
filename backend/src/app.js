@@ -9,6 +9,7 @@ import habitRoutes from './routes/habits.js';
 import insightRoutes from './routes/insights.js';
 import searchRoutes from './routes/search.js';
 import userRoutes from './routes/users.js';
+import pushRoutes from './routes/push.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -52,6 +53,7 @@ app.use('/api/habits',   habitRoutes);
 app.use('/api/insights', insightRoutes);
 app.use('/api/search',   searchRoutes);
 app.use('/api/users',    userRoutes);
+app.use('/api/push',     pushRoutes);
 
 // ── Global error handler (must be last) ───────────────────────────────────
 app.use(errorHandler);
