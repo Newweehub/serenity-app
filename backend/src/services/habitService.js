@@ -57,8 +57,18 @@ export async function checkIn(habitId, userId, { completed, note = '' }) {
   const today = new Date().toISOString().slice(0, 10);
 
   // Prevent duplicate check-ins for the same day
-  if (habit.checkIns.some(c => c.date === today)) {
-    return { habit, reframe: null, alreadyCheckedIn: true };
+  const existingIndex = habit.checkIns.findIndex(c => c.date === today);
+  if (existingIndex !== -1) {
+    if (habit.checkIns[existingIndex].completed) {
+      return { habit, reframe: null, alreadyCheckedIn: true }; // already done, skip
+    }
+    if (completed) {
+      // Overwrite the miss with a completion
+      habit.checkIns.splice(existingIndex, 1);
+      // falls through to write the completed check-in below
+    } else {
+      return { habit, reframe: null, alreadyCheckedIn: true }; // already missed, skip
+    }
   }
 
   habit.checkIns.unshift({ date: today, completed, note });

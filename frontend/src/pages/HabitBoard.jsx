@@ -140,25 +140,25 @@ export default function HabitBoard() {
 
   const today = new Date().toISOString().slice(0, 10);
 
-  // ── Auto-miss detection: write missed check-ins for yesterday ──
-  useEffect(() => {
-    if (!habits.length) return;
-    const d = new Date(Date.now() - 86_400_000);
-    const yesterday = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-    const yesterdayDay = d.getDay();
+  // ── Auto-miss detection: write missed check-ins for yesterday (for localhost)──
+  // useEffect(() => {
+  //   if (!habits.length) return;
+  //   const d = new Date(Date.now() - 86_400_000);
+  //   const yesterday = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  //   const yesterdayDay = d.getDay();
 
-    habits.forEach(h => {
-      const s = h.schedule;
-      if (!s?.targetTime) return;
-      const dayMatch = s.dayOfWeek === null || s.dayOfWeek === undefined || Number(s.dayOfWeek) === yesterdayDay;
-      if (!dayMatch) return;
-      const alreadyHasEntry = (h.checkIns || []).some(c => c.date === yesterday);
-      if (alreadyHasEntry) return;
-      api.habits.checkIn(h.id, { completed: false, note: 'Auto-recorded miss' })
-        .then(() => refetch())
-        .catch(() => {});
-    });
-  }, [habits.length]);
+  //   habits.forEach(h => {
+  //     const s = h.schedule;
+  //     if (!s?.targetTime) return;
+  //     const dayMatch = s.dayOfWeek === null || s.dayOfWeek === undefined || Number(s.dayOfWeek) === yesterdayDay;
+  //     if (!dayMatch) return;
+  //     const alreadyHasEntry = (h.checkIns || []).some(c => c.date === yesterday);
+  //     if (alreadyHasEntry) return;
+  //     api.habits.checkIn(h.id, { completed: false, note: 'Auto-recorded miss' })
+  //       .then(() => refetch())
+  //       .catch(() => {});
+  //   });
+  // }, [habits.length]);
 
   // ── Proactively load adaptation suggestions for repeatedly-missed habits ──
   // Uses a key built from all habit ids + their checkIn counts so it re-runs
@@ -370,17 +370,22 @@ export default function HabitBoard() {
     setConfirmModal(null);
     setDoneTodayLocal(prev => ({ ...prev, [habitId]: true }));
     try {
-      await api.habits.checkIn(habitId, { completed: true });
-      const habit = habits.find(h => h.id === habitId);
-      if (habit && getMissedDays(habit) >= 2) {
-        api.habits.suggest(`I keep missing "${habit.name}". What's a gentler alternative?`)
-          .then(r => {
-            if (r?.suggestion) setAltSuggestion(prev => ({ ...prev, [habitId]: r.suggestion.confirmationMessage }));
-          }).catch(() => {});
+      const result = await api.habits.checkIn(habitId, { completed: true });
+
+      // If backend says already checked in, it may have returned stale data
+      // Force a refetch regardless
+      if (result?.alreadyCheckedIn) {
+        console.warn('[checkIn] already checked in for today — forcing refetch');
       }
-      refetch();
+
+      await new Promise(r => setTimeout(r, 400));
+      await refetch();
     } catch {
-      setDoneTodayLocal(prev => { const n = {...prev}; delete n[habitId]; return n; });
+      setDoneTodayLocal(prev => {
+        const n = { ...prev };
+        delete n[habitId];
+        return n;
+      });
     }
   }
 
