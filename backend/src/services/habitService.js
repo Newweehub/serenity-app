@@ -26,7 +26,6 @@ export async function createHabit(userId, { name, category, goal, schedule, adde
     category: category || 'other',
     status: 'active',
     schedule: {
-      // dayOfWeek: 0=Sunday,1=Monday,...,6=Saturday. null means every day.
       dayOfWeek: schedule?.dayOfWeek ?? null,
       targetTime: schedule?.targetTime || null,
       reminderOffsetMinutes: schedule?.reminderOffsetMinutes ?? 30,
@@ -49,30 +48,45 @@ export async function createHabit(userId, { name, category, goal, schedule, adde
 /**
  * Mark a habit as complete or missed for today.
  * Returns the updated habit and — if missed — a reframing message.
+ *
+ * KEY FIX: If there is already a completed:false entry for today (written by
+ * the auto-miss function or the frontend useEffect), and the user is now
+ * marking it as completed:true, we overwrite it instead of blocking.
  */
 export async function checkIn(habitId, userId, { completed, note = '' }) {
   const habit = await habitRepository.findById(habitId, userId);
   if (!habit) throw Object.assign(new Error('Habit not found'), { status: 404 });
 
+  // Use the user's local date sent from the client, falling back to UTC
   const today = new Date().toISOString().slice(0, 10);
 
-  // Prevent duplicate check-ins for the same day
+  console.log(`[checkIn] habitId=${habitId} completed=${completed} today=${today}`);
+  console.log(`[checkIn] existing checkIns for today:`, habit.checkIns.filter(c => c.date === today));
+
   const existingIndex = habit.checkIns.findIndex(c => c.date === today);
+
   if (existingIndex !== -1) {
-    if (habit.checkIns[existingIndex].completed) {
-      return { habit, reframe: null, alreadyCheckedIn: true }; // already done, skip
+    const existing = habit.checkIns[existingIndex];
+
+    // Already completed today — do not overwrite
+    if (existing.completed) {
+      console.log(`[checkIn] already completed today — skipping`);
+      return { habit, reframe: null, alreadyCheckedIn: true };
     }
+
+    // Has a missed (completed:false) entry — if user is now marking done, overwrite it
     if (completed) {
-      // Overwrite the miss with a completion
-      habit.checkIns.splice(existingIndex, 1);
-      // falls through to write the completed check-in below
+      console.log(`[checkIn] overwriting completed:false with completed:true for today`);
+      habit.checkIns.splice(existingIndex, 1); // remove the miss entry, fall through to write done
     } else {
-      return { habit, reframe: null, alreadyCheckedIn: true }; // already missed, skip
+      // Already marked as missed today — skip
+      console.log(`[checkIn] already marked missed today — skipping`);
+      return { habit, reframe: null, alreadyCheckedIn: true };
     }
   }
 
   habit.checkIns.unshift({ date: today, completed, note });
-  habit.checkIns = habit.checkIns.slice(0, 90); // keep 90 days max
+  habit.checkIns = habit.checkIns.slice(0, 90);
 
   if (completed) {
     const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
@@ -86,6 +100,7 @@ export async function checkIn(habitId, userId, { completed, note = '' }) {
 
   habit.updatedAt = new Date().toISOString();
   const updated = await habitRepository.save(habit);
+  console.log(`[checkIn] saved — checkIns[0]:`, updated.checkIns[0]);
 
   // Increment mindfulness streak on user profile if this is a mindfulness habit
   if (completed && habit.category === 'mindfulness') {
@@ -112,7 +127,6 @@ export async function checkIn(habitId, userId, { completed, note = '' }) {
   if (!completed) {
     const context = await buildContext(userId);
     reframe = await generateReframe(habit, context);
-    // Store used reframe so it's not repeated
     updated.aiMeta.reframingStrategies = [
       reframe,
       ...(updated.aiMeta.reframingStrategies || []),
@@ -191,7 +205,6 @@ export async function updateSchedule(habitId, userId, { dayOfWeek, targetTime, r
 
 /**
  * Update an existing habit's name, category, goal and schedule.
- * Used by the "adapt habit" flow when AI suggests a modification.
  */
 export async function updateHabit(habitId, userId, { name, category, goal, schedule }) {
   const habit = await habitRepository.findById(habitId, userId);
