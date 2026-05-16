@@ -9,11 +9,12 @@ This document covers how to manually test every feature of Serenity, plus what t
 Make sure both servers are running:
 
 ```bash
-# Terminal 1
+# Terminal 1 — Backend (port 3001)
 cd backend && npm run dev
 # Should print: 🌿 Serenity backend running on port 3001
+#               Health: http://localhost:3001/health
 
-# Terminal 2
+# Terminal 2 — Frontend (port 5173, Vite dev server proxies /api/* to port 3001)
 cd frontend && npm run dev
 # Should print: Local: http://localhost:5173
 ```
@@ -26,7 +27,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 
 **What to do:**
 1. Open `http://localhost:5173`
-2. You should see the Serenity login screen with two fields: name and user ID
+2. You should see the Serenity login screen (`DevLoginGate`) with two fields: name and user ID
 3. Enter any name (e.g. `Mia`) and a user ID (e.g. `user-001`)
 4. Click **Enter Serenity**
 
@@ -34,15 +35,43 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - You land on the Dashboard page
 - The sidebar shows your name at the bottom
 - Browser console shows no errors
+- `localStorage` has `serenity_user_id` and `serenity_display_name` set
 
 **To test multiple users:**
 - Open a second browser tab in incognito mode
 - Enter a different user ID (e.g. `user-002`)
 - Both users have separate journal entries, habits, and profiles
 
+> **Note:** This login screen only appears on `localhost`. On Azure, Microsoft Entra ID (Easy Auth) handles authentication automatically via `/.auth/login/aad`. The `DevLoginGate` component is completely bypassed in production.
+
 ---
 
-## 2 — Dashboard
+## 2 — Production Authentication (Azure)
+
+**What to do:**
+1. Open the frontend App Service URL in your browser
+2. You should be redirected to Microsoft login (`login.microsoftonline.com`)
+3. Log in with your Microsoft account
+4. You should land on the Dashboard
+
+**Expected result:**
+- After login, the browser has an `AppServiceAuthSession` cookie
+- `/.auth/me` returns your user identity (OID, display name, claims)
+- `localStorage` has `serenity_user_id` (your OID) and `serenity_display_name` populated by `initAuthFromEasyAuth()`
+- All `/api/*` calls return 200 (not 401)
+
+**To verify identity resolution in DevTools:**
+- Open DevTools → Console
+- Run `localStorage.getItem('serenity_user_id')` — should return your OID (a GUID)
+- Run `fetch('/.auth/me').then(r=>r.json()).then(console.log)` — should return your claims
+
+**To verify the proxy is forwarding correctly:**
+- Visit `https://<frontend-url>/api/debug-proxy`
+- Should return JSON with `resolvedIdentity.userId` matching your OID
+
+---
+
+## 3 — Dashboard
 
 **What to do:**
 1. Click one of the mood emoji buttons (😔 😕 😐 🙂 😊)
@@ -53,16 +82,16 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - Tapping a mood emoji saves a journal entry silently and shows a confirmation message
 - Stats cards are clickable — each navigates to the relevant page
 - "Today's focus" shows only habits scheduled for today (or every day), sorted by time
-- The mood trend shows 📈 📉 or 〰️ (not arrows)
+- The mood trend shows 📈 📉 or 〰️
 - The wearable data card shows steps, heart rate, sleep, and stress
 - Clicking the wearable suggestion navigates to the correct mindfulness exercise
 - The insight snippet pulls from this week's report
 
 ---
 
-## 3 — Journal
+## 4 — Journal
 
-### 3a — Writing an entry
+### 4a — Writing an entry
 
 **What to do:**
 1. Navigate to **Journal**
@@ -76,7 +105,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
   - A reflective question from Serenity
   - If emotions suggest stress, a "Recommended exercise" button appears linking to Mindfulness
 
-### 3b — AI follow-up chat
+### 4b — AI follow-up chat
 
 **What to do:**
 1. After saving an entry, type a reply in the follow-up input
@@ -87,7 +116,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - If you mention stress, Serenity says something like "Head to the Mindfulness page" rather than guiding the exercise inline
 - The 🔇/🔈/🔊 voice toggle appears above the chat — click it to enable AI voice
 
-### 3c — Voice journaling
+### 4c — Voice journaling
 
 **What to do:**
 1. Click the 🎙 microphone button next to the journal editor
@@ -99,7 +128,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - Interim text appears as a small pill next to the button
 - Final text appends to the editor field
 
-### 3d — Timeline view
+### 4d — Timeline view
 
 **What to do:**
 1. Click the **Timeline** tab
@@ -112,9 +141,9 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 
 ---
 
-## 4 — Mindfulness
+## 5 — Mindfulness
 
-### 4a — Exercise library
+### 5a — Exercise library
 
 **What to do:**
 1. Navigate to **Mindfulness**
@@ -127,7 +156,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - Filter chips correctly narrow the library
 - Clicking Start opens the session view with steps overview
 
-### 4b — Guided session
+### 5b — Guided session
 
 **What to do:**
 1. Start the **4-7-8 Breathing** exercise
@@ -141,7 +170,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - Mic button works in the session input
 - Clicking back returns to the library without navigating to another page
 
-### 4c — Add to Habit Board from Mindfulness
+### 5c — Add to Habit Board from Mindfulness
 
 **What to do:**
 1. Click **+ Add to Habit Board** during or after a session
@@ -154,7 +183,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - Same exercise can be added with a different day or time without error
 - After saving, the exercise appears on the Habit Board page
 
-### 4d — Navigate back from Habit Board exercise
+### 5d — Navigate back from Habit Board exercise
 
 **What to do:**
 1. On Habit Board, click **◌ Go to exercise →** on a mindfulness habit
@@ -168,9 +197,9 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 
 ---
 
-## 5 — Habit Board
+## 6 — Habit Board
 
-### 5a — Adding a habit (AI suggestion)
+### 6a — Adding a habit (AI suggestion)
 
 **What to do:**
 1. Click **+ Add habit**
@@ -183,7 +212,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - You can adjust the day and time before saving
 - Duplicate warning appears if same habit+schedule already exists
 
-### 5b — Adding a habit (manually)
+### 6b — Adding a habit (manually)
 
 **What to do:**
 1. Click **+ Add habit** → **+ Add manually**
@@ -194,7 +223,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - New habit appears at the top of the grid
 - The weekly calendar updates to show it on the correct day column
 
-### 5c — Checking in
+### 6c — Checking in (Done)
 
 **What to do:**
 1. Click **✓ Done** on any habit
@@ -204,9 +233,16 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - After confirming, the button is replaced by a green "✓ Completed today" badge
 - The streak counter increments
 - The streak bar grows
+- **Refreshing the page or navigating away and back still shows "Completed today"** — the check-in is persisted in Cosmos DB
 - You cannot click Done again for the same habit today
 
-### 5d — Missing a habit
+**To verify persistence in DevTools:**
+- Open Console → run `await fetch('/api/habits').then(r=>r.json())`
+- Find the habit — `checkIns[0]` should have today's date and `completed: true`
+
+> **Note:** If a habit was auto-missed by the Azure Function (`completed: false`) before you clicked Done, the backend overwrites the miss with the completion. This is intentional — you can always mark a habit done even if it was auto-missed.
+
+### 6d — Missing a habit
 
 **What to do:**
 1. Click **I missed it today** (small link below Done)
@@ -216,7 +252,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - After 2+ consecutive misses, an AI adaptation suggestion card appears automatically
 - The suggestion includes a new habit name, time, and reason
 
-### 5e — Accepting an adaptation
+### 6e — Accepting an adaptation
 
 **What to do:**
 1. When a suggestion card appears, click **✏ Adapt this habit**
@@ -229,7 +265,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - For 3 days, no new suggestion appears for this habit even if misses continue (suppression)
 - After 3 days, if misses resume, a new suggestion may appear
 
-### 5f — Schedule editing
+### 6f — Schedule editing
 
 **What to do:**
 1. Click the schedule display (e.g. "📅 Set recurring schedule") on any habit card
@@ -240,7 +276,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - The schedule display updates to show "🔔 Every Monday at 8:00 AM" format
 - The weekly calendar updates to reflect the new day
 
-### 5g — Weekly calendar
+### 6g — Weekly calendar
 
 **What to do:**
 1. Look at the calendar at the top of the Habit Board
@@ -252,7 +288,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 - Clicking an event smoothly scrolls to that habit card and highlights it with a green ring
 - Today's column header has a dark green background
 
-### 5h — In-app notifications
+### 6h — In-app notifications (browser)
 
 **What to do:**
 1. Set a habit's reminder time to 2 minutes from now
@@ -266,7 +302,31 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 
 ---
 
-## 6 — Insight Page
+## 7 — Push Notifications (Azure only)
+
+Push notifications are sent by the `sendHabitReminders` Azure Function and require HTTPS (not available on localhost).
+
+**What to do:**
+1. On Azure, navigate to **Settings**
+2. Click **Enable push notifications** and allow when the browser prompts
+3. Set a habit's reminder time to 2–3 minutes from now
+4. Lock your screen or switch to another tab
+
+**Expected result:**
+- At the habit's `targetTime`, the browser shows a system push notification: "Time for '[habit name]'! 🌿"
+- Clicking the notification opens the app and navigates to Habit Board
+
+**To verify the subscription was saved:**
+- DevTools → Console → run `await fetch('/api/push/subscribe', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({subscription: null})}).then(r=>r.json())`
+- Should return `{error: "No subscription"}` (400) — meaning the route is reachable
+
+**To manually trigger the function (Azure portal):**
+1. Go to **serenity-functions → midnightAutoMiss or sendHabitReminders → Code + Test → Test/Run**
+2. Click **Run** and watch the log output
+
+---
+
+## 8 — Insight Page
 
 **What to do:**
 1. Navigate to **Insight**
@@ -280,7 +340,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 
 ---
 
-## 7 — Settings
+## 9 — Settings
 
 **What to do:**
 1. Navigate to **Settings** (⚙ in sidebar or avatar click)
@@ -300,14 +360,17 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 3. Change the speed slider
 4. Open a chat panel and enable voice — responses use the new settings
 
-**Logout:**
+**Sign out (localhost):**
 1. Click **Sign out** in the Account section
-2. On localhost: localStorage is cleared and the login screen appears
-3. On Azure: redirected to Microsoft logout
+2. `localStorage` is cleared and the `DevLoginGate` screen appears
+
+**Sign out (Azure):**
+1. Click **Sign out**
+2. Redirected to `/.auth/logout` → Microsoft logout page
 
 ---
 
-## 8 — Voice (TTS)
+## 10 — Voice (TTS)
 
 **What to do:**
 1. Open any chat panel (Mindfulness session or Journal follow-up)
@@ -321,7 +384,7 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 
 ---
 
-## 9 — Responsive / Mobile
+## 11 — Responsive / Mobile
 
 **What to do:**
 1. Open Chrome DevTools (F12) → Toggle device toolbar
@@ -342,11 +405,18 @@ Open `http://localhost:5173` in **Chrome or Edge** (required for voice features)
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| White screen on load | Missing env var crashes backend | Check `backend/.env` has all 6 vars filled in |
-| `401 Unauthorised` in console | No userId set | Run `localStorage.setItem('serenity_user_id', 'user-001')` in console then refresh |
-| AI chat returns JSON instead of text | Orchestrator routing issue | Check `backend/src/agents/orchestrator.js` — INSIGHT intent removed from chat routing |
+| White screen on load | Missing env var crashes backend | Check `backend/.env` has all vars filled in, check backend log stream |
+| `401 Unauthorised` on `/api/*` (Azure) | Easy Auth intercepting API calls | Verify `excludedPaths: ["/api"]` is saved in `authsettingsV2` — run the `az rest GET` command to check |
+| `401 Unauthorised` on `/api/*` (Azure) | `x-user-id` not forwarded by proxy | Visit `/api/debug-proxy` — check `resolvedIdentity` is not null |
+| Infinite login loop | `getUserId()` redirect guard race condition | Ensure the guard (`window.location.href = '/.auth/login/aad'`) is removed from `api.js` |
+| Habit shows incomplete after clicking Done (refresh) | Auto-miss `useEffect` writing `completed:false` that blocks the checkIn | Ensure the auto-miss `useEffect` is removed from `HabitBoard.jsx` and `habitService.js` has the overwrite fix |
+| AI chat returns JSON instead of text | Orchestrator routing issue | Check `backend/src/agents/orchestrator.js` |
 | Voice input mic not appearing | Unsupported browser | Use Chrome or Edge; Firefox does not support `SpeechRecognition` |
 | Journal entries show wrong date | UTC vs local timezone | Dates in Journal use `toLocalDate()` helper — verify system timezone is correct |
 | Cosmos DB connection refused | IP not whitelisted | Azure Portal → Cosmos DB → Networking → Add your current IP |
 | AI Search errors on journal save | Index fields not Retrievable | Portal → AI Search → journal-entries → Fields → check Retrievable on text, emotions, themes, summary, date |
-| Notifications not appearing | Habit has no reminder time set | Edit the habit schedule and set a targetTime |
+| Push notifications not arriving | VAPID keys missing from Function App | Add `VAPID_EMAIL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY` to serenity-functions App Settings |
+| Push notifications not arriving | `sendHabitReminders` schedule wrong | Verify `function.json` schedule is `"0 0 * * * *"` (every minute), not `"0 * * * * *"` (every second) |
+| Function App shows no functions | `host.json` missing | Ensure `backend/functions/host.json` exists and is included in the deployment zip |
+| GitHub Actions deploy fails with SCM restart | Management operation fired during deploy | Wait 2–3 minutes after any Azure portal change before pushing; re-run the failed job |
+| GitHub Actions OIDC login fails — "No matching federated identity" | Workflow uses `environment: Production` but Entra ID only has `ref:refs/heads/main` credential | Add a second federated credential for Entity type = Environment, name = Production in Entra ID app registration |
