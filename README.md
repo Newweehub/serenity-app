@@ -4,6 +4,8 @@
 
 Serenity is a web application that helps users build self-awareness, reflect intentionally, and form sustainable habits through natural, supportive AI interactions. It combines a multi-agent AI system with mindfulness exercises, a journaling space, and an intelligent habit board — all in one calm, beautifully designed interface.
 
+You can view the completed project at this link: https://serenity-frontend-a3c5ewguhth7gfck.southeastasia-01.azurewebsites.net
+
 ---
 
 ## ✨ Features
